@@ -5,8 +5,8 @@ import type {LayerDefinition,AccessLevel} from '../core/layers.js';
 export function useLayerRegistry(initial:readonly LayerDefinition[],access:AccessLevel){
  const [registry]=useState(()=>createLayerRegistry(initial,access));
  const snapshot=useSyncExternalStore(registry.subscribe,registry.getSnapshot,registry.getSnapshot);
- const setVisible:Dispatch<SetStateAction<Record<string,boolean>>>=change=>{const next=typeof change==='function'?change(registry.getSnapshot().visible):change;Object.entries(next).forEach(([id,value])=>registry.setVisible(id,value));};
- const setOpacity:Dispatch<SetStateAction<Record<string,number>>>=change=>{const next=typeof change==='function'?change(registry.getSnapshot().opacity):change;Object.entries(next).forEach(([id,value])=>registry.setOpacity(id,value));};
+ const setVisible:Dispatch<SetStateAction<Record<string,boolean>>>=change=>registry.update({visible:typeof change==='function'?change(registry.getSnapshot().visible):change});
+ const setOpacity:Dispatch<SetStateAction<Record<string,number>>>=change=>registry.update({opacity:typeof change==='function'?change(registry.getSnapshot().opacity):change});
  return {...snapshot,registry,setVisible,setOpacity};
 }
 export function LayerPanel({registry}:{registry:LayerRegistry}){

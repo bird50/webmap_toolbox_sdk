@@ -6,7 +6,7 @@ Reusable React/TypeScript Photo, Draw and Data Files tools with three independen
 
 Node 22.14+ and npm. Run `npm install`, `npm run lint`, `npm run build`, `npm test`. Build emits JavaScript, TypeScript declarations and CSS to `dist/` (ignored by Git). In another application: `npm install ../toolbox_sdk --install-links`. `npm pack` produces an installable archive for CI or an internal npm registry; publishing is not performed automatically.
 
-`npm test` runs node:test suites without a browser: `sdk.test.ts` (registry, storage, client, adapter), `core-data-files.test.ts` (CSV/GeoJSON/KML parsers; `@xmldom/xmldom` stands in for the browser `DOMParser`), `core-contracts.test.ts` (drawing geometry and contract, public photo query, share tags, Host API 1.0) and `ui-smoke.test.ts` (server-rendered markup of the tool panels, `ToolboxHost`, `LayerPanel`, `WorkspacePanels`). Hooks, effects and map overlays are not exercised; check them with the host application's manual regression checklist.
+`npm test` runs node:test suites without a browser: `sdk.test.ts` (registry, storage, client, adapter), `core-data-files.test.ts` (CSV/GeoJSON/KML parsers; `@xmldom/xmldom` stands in for the browser `DOMParser`), `core-contracts.test.ts` (drawing geometry and contract, public photo query, share tags, Host API 1.0) and `ui-smoke.test.ts` (server-rendered markup of the tool panels, `ToolboxHost`, `LayerPanel`, `WorkspacePanels`), `registry-plugins.test.ts` (owned layers, batched updates, Tool API 2.0 checks) and `maplibre-surface.test.ts` (GeoJSON surface against an in-memory MapLibre stand-in, pointer events, style swaps). Hooks, effects and map overlays are not exercised; check them with the host application's manual regression checklist.
 
 ```tsx
 import {createPublicClient} from '@thaiwater/toolbox-sdk';
@@ -36,6 +36,16 @@ Core does not import React or a map engine. Photo markers/popups currently requi
 
 Inside a react-map-gl Map mount `<MapLibreToolboxBridge>` around drawing and photo overlays. The bridge owns subscriptions, disposes its own listeners on unmount and never destroys the host map. A different engine mounts `<MapAdapterProvider adapter={adapter}>`. The adapter provides viewport, projection, navigation, bounds fitting and events. Optional `WebmapHost.map` / `.registry` extend the compatible API 1.0; tools declare capabilities they need. UI access levels are presentation only, never server authorization.
 
+## Tool API 2.0 preview (0.2.0, additive)
+
+These contracts land ahead of the plugin runtime; nothing mounts them yet and every 1.0 API keeps working unchanged.
+
+- `LayerDefinition.owner {toolId,key}` marks tool-owned layers; `photoDataKey`/`drawingDataKey` are deprecated and stay for 1.0 hosts. `isToolLayer()` accepts either form.
+- `LayerRegistry.registerOwned(toolId, layers, placement)` adds a tool's layers all-or-nothing with one change event (`'start'`, `'end'` or `{before:id}`); `unregisterOwner(toolId)` removes them; `update({visible,opacity})` batches changes and skips no-ops. `useLayerRegistry` setters now emit once per call.
+- `MapAdapter` gains optional `onPointer`/`offPointer` (`click`, `pointermove`; hits are reported by registry layer ID), `getContainer()` for HTML/SVG overlays and a `geojson` surface (`set`, `remove`, `setVisible`, `setOpacity`, `order` first = top, `layerIds`). `mapCapabilities(adapter)` derives `map.pointer`, `map.geojson` and `map.overlay` from what an adapter actually implements; custom adapters without them stay valid.
+- The MapLibre adapter implements all three. Its GeoJSON surface re-adds layers after a basemap/style swap and reuses RegistryLayers IDs and paint (`registryLayerSpecs`), so never render one registry layer through both. Layers missing from the last `order()` call sit below ordered ones.
+- `ToolPlugin` (`apiVersion:"2.0"`, `layers`, `Panel`, `Overlay`, `Dialogs`), `pluginAvailable()` and `definePlugins()` (unique tool IDs, one owner per layer ID) describe self-contained tools for the upcoming runtime.
+
 ## Storage and service
 
 My Photos, My Drawing and Data Files stay in IndexedDB. Database names contain appId/tool/schema version; records are scoped to userId. Photo retention is 15 days from add; drawing retention is 15 days from explicit save. Reads do not extend expiry. `createBrowserStorage(appId, legacyNames)` preserves an existing host's databases without uploading or silently migrating them. Keep runtime instances stable, and remount a workspace on identity changes.
@@ -59,6 +69,6 @@ Open http://localhost:4174. The map uses a blank background so it needs no tile 
 
 ## Compatibility and release discipline
 
-Package version: 0.1.2; host contract: 1.0; storage schema: v1; service HTTP contract remains unchanged. Treat each as a separate version. Change contracts with tests and a migration note. `tests/sdk.test.ts` exercises app/user isolation, expiry, blob persistence, layer synchronization, event cleanup and endpoint configuration. Do not load unreviewed toolbox JavaScript from arbitrary URLs.
+Package version: 0.2.0; host contract: 1.0 (stable) and Tool API 2.0 (preview); storage schema: v1; service HTTP contract remains unchanged. Treat each as a separate version. Change contracts with tests and a migration note. `tests/sdk.test.ts` exercises app/user isolation, expiry, blob persistence, layer synchronization, event cleanup and endpoint configuration. Do not load unreviewed toolbox JavaScript from arbitrary URLs.
 
 Layer ordering controls GeoJSON MapLibre layers within their rendering surface. Photo markers and the SVG drawing overlay retain separate surfaces; ordering these across surfaces requires a host-specific compositing policy.
