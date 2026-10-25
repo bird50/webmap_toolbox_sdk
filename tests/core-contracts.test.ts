@@ -5,7 +5,6 @@ import {shapePoints,transformPoints,defaultDrawingStyle,type Coordinate} from '.
 import {drawingSchema,drawingCollection,drawingShareSchema} from '../src/core/drawing-contract.js';
 import {publicPhotoQuery,publicPhotoFilters,photoViewportBbox} from '../src/core/public-photo-query.js';
 import {automaticShareTag,shareFields} from '../src/core/photo-share.js';
-import {defineToolboxes,toolboxAvailable,type WebmapHost,type ToolboxDefinition} from '../src/ui/contracts.js';
 
 test('rectangle closes its ring and preserves both drag corners',()=>{
  assert.deepEqual(shapePoints('rectangle',[101,15],[100,13]),[[101,15],[100,15],[100,13],[101,13],[101,15]]);
@@ -67,15 +66,4 @@ test('share tag uses the Bangkok date and client tags cannot imitate it',()=>{
  assert.equal(shareFields.safeParse({eventName:'น้ำท่วม',tags:['share2026-10-26']}).success,false);
  assert.equal(shareFields.safeParse({eventName:'น้ำท่วม',tags:['ลุ่มน้ำ']}).success,true);
  assert.equal(shareFields.safeParse({eventName:' ',tags:[]}).success,false);
-});
-
-const host:WebmapHost={apiVersion:'1.0',accessLevel:'MEMBER',capabilities:['map.navigate'],layers:[],visible:{},opacity:{},setLayerVisible(){},setLayerOpacity(){},navigate(){}};
-const tool:ToolboxDefinition={id:'example.navigation',title:'Navigation',version:'1.0.0',apiVersion:'1.0',accessLevel:'PUBLIC',requires:['map.navigate'],Panel:()=>null};
-test('host API 1.0 mounts only tools matching version, access and capabilities; IDs are unique',()=>{
- assert.equal(toolboxAvailable(tool,host),true);
- assert.equal(toolboxAvailable({...tool,accessLevel:'ADMIN'},host),false);
- assert.equal(toolboxAvailable({...tool,requires:['layers.control']},host),false);
- assert.equal(toolboxAvailable(tool,{...host,apiVersion:'2.0' as '1.0'}),false);
- assert.throws(()=>defineToolboxes([tool,tool]),/duplicate/);
- assert.throws(()=>defineToolboxes([{...tool,id:' '}]),/Invalid/);
 });

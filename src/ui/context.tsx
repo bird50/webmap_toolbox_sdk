@@ -7,7 +7,7 @@ import {createLayerRegistry,type LayerRegistry} from '../core/registry.js';
 import {createToolWorkspaceStore,registerPluginLayers,type StateUpdate,type ToolUser,type ToolWorkspaceStore} from '../core/workspace.js';
 import type {BrowserStorage} from '../storage/index.js';
 import {TOOL_API_VERSION,definePlugins,mapCapabilities,pluginAvailable,type ToolPlugin,type WebmapCapability} from './contracts.js';
-import {thMessages,type ToolboxMessages} from './messages.js';
+import {mergeMessages,thMessages,type ToolboxMessages,type ToolboxMessagesOverride} from './messages.js';
 import {ToolBoundary} from './boundary.js';
 export type ToolboxRuntime={appId:string;storage:BrowserStorage;client:PublicClient};
 type Workspace={store:ToolWorkspaceStore;registry:LayerRegistry;user:ToolUser;messages:ToolboxMessages;plugins:readonly ToolPlugin[];mounted:readonly ToolPlugin[];failed:Readonly<Record<string,string>>};
@@ -25,7 +25,7 @@ const noCapabilities:readonly WebmapCapability[]=[];
  * Keep `plugins`, `registry` and `messages` stable; remount the provider (e.g. `key={user.id}`) when the user changes.
  * Tools requiring map capabilities mount once a map adapter is attached (`map` here or a MapAdapterProvider/bridge below).
  */
-export function ToolboxProvider({runtime,children,plugins=noPlugins,registry,user=guest,map,capabilities=noCapabilities,messages,toolLayers='end'}:{runtime:ToolboxRuntime;children:ReactNode;plugins?:readonly ToolPlugin[];registry?:LayerRegistry;user?:ToolUser;map?:MapAdapter;capabilities?:readonly WebmapCapability[];messages?:Partial<ToolboxMessages>;toolLayers?:'start'|'end'}){
+export function ToolboxProvider({runtime,children,plugins=noPlugins,registry,user=guest,map,capabilities=noCapabilities,messages,toolLayers='end'}:{runtime:ToolboxRuntime;children:ReactNode;plugins?:readonly ToolPlugin[];registry?:LayerRegistry;user?:ToolUser;map?:MapAdapter;capabilities?:readonly WebmapCapability[];messages?:ToolboxMessagesOverride;toolLayers?:'start'|'end'}){
  const [store]=useState(createToolWorkspaceStore);
  const [fallbackRegistry]=useState(()=>registry?undefined:createLayerRegistry([],user.accessLevel));
  const layers=registry??fallbackRegistry!;
@@ -42,7 +42,7 @@ export function ToolboxProvider({runtime,children,plugins=noPlugins,registry,use
   setFailed(current=>JSON.stringify(current)===JSON.stringify(result.failed)?current:result.failed);
   return ()=>result.dispose();
  },[layers,availableKey,toolLayers]);
- const workspace=useMemo<Workspace>(()=>({store,registry:layers,user:{id:user.id,accessLevel:user.accessLevel},messages:{...thMessages,...messages},plugins:checked,mounted:available.filter(plugin=>!failed[plugin.id]),failed}),[store,layers,user.id,user.accessLevel,messages,checked,available,failed]);
+ const workspace=useMemo<Workspace>(()=>({store,registry:layers,user:{id:user.id,accessLevel:user.accessLevel},messages:mergeMessages(messages),plugins:checked,mounted:available.filter(plugin=>!failed[plugin.id]),failed}),[store,layers,user.id,user.accessLevel,messages,checked,available,failed]);
  const controllers=workspace.mounted.flatMap(({id,title,Controller})=>Controller?[<ToolScope key={id} toolId={id}><ToolBoundary message={workspace.messages.toolFailed(title)}><Controller toolId={id}/></ToolBoundary></ToolScope>]:[]);
  return <Context.Provider value={runtime}><WorkspaceContext.Provider value={workspace}>{controllers}{children}</WorkspaceContext.Provider></Context.Provider>;
 }
@@ -73,7 +73,8 @@ export function useMapAdapter():MapAdapter|undefined{
 export function useToolWorkspace(){const value=useContext(WorkspaceContext);if(!value)throw new Error('ToolboxProvider is required');return value;}
 export function useToolId(){const value=useContext(ToolContext);if(!value)throw new Error('ToolScope is required');return value;}
 export function useToolUser(){return useToolWorkspace().user;}
-export function useToolMessages(){return useToolWorkspace().messages;}
+/** Works outside a provider too (default Thai text), so components stay usable on their own. */
+export function useToolMessages():ToolboxMessages{return useContext(WorkspaceContext)?.messages??thMessages;}
 /** Registry snapshot shared by the Layer Panel, Toolbox Panel and map overlays. */
 export function useLayers(){
  const {registry}=useToolWorkspace();

@@ -57,6 +57,6 @@ function Dialogs(){
 /** Simple Data Files: KML/GeoJSON/CSV kept in this browser for 15 days and drawn as one mixed layer. */
 export function dataFilesTool({id=DATA_FILES_TOOL_ID,title="Simple Data Files",accessLevel="MEMBER",layer}:ToolPluginOptions&{layer?:ToolLayerOptions}={}):ToolPlugin{
  return {id,title,version:"2.0.0",apiVersion:TOOL_API_VERSION,accessLevel,requires:["map.geojson"],
-  layers:toolLayer(id,"files",{...baseLayer,id:"my-data-files",title:"My Data Files",description:"ไฟล์ KML, GeoJSON และ CSV ของฉัน เก็บบนเบราว์เซอร์ 15 วัน",group:"ข้อมูลของฉัน",url:"local:my-data-files",color:"#f59e0b",legend:"My Data Files",popupFields:["data_file","file_description","name","description"],toolboxId:id,render:{kind:"mixed",dataKey:"my-data-files"}},layer),
+  layers:toolLayer(id,"files",{...baseLayer,id:"my-data-files",title:"My Data Files",description:"ไฟล์ KML, GeoJSON และ CSV ของฉัน เก็บบนเบราว์เซอร์ 15 วัน",group:"ข้อมูลของฉัน",url:"local:my-data-files",color:"#f59e0b",legend:"My Data Files",popupFields:["data_file","file_description","name","description"],render:{kind:"mixed",dataKey:"my-data-files"}},layer),
   layerSettings:{files:"files"},Controller,Panel,Overlay,Dialogs};
 }

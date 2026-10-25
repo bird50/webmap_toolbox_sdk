@@ -112,3 +112,24 @@ test('layer options rename or drop tool layers; navigation waits for the map',as
  assert.equal(button.disabled,false);act(()=>button.click());
  assert.deepEqual(named('navigate')[0],['navigate',{longitude:98,latitude:18,zoom:8,label:'เชียงใหม่'}]);
 });
+test('photoTool draws My Photos as HTML markers positioned through MapAdapter.project, with a popup',async()=>{
+ const {photoTool}=await import('../src/ui/plugins/photo.js');
+ const rt=runtime(),{map}=fakeMap(),registry=createLayerRegistry([],'MEMBER');
+ map.project=([lng,lat])=>({x:(lng-99)*100,y:(14-lat)*100});
+ await rt.storage.photos.savePhotos('u6',[{file:new File(['x'],'river.jpg',{type:'image/jpeg'}),longitude:100,latitude:13}]);
+ const {createObjectURL,revokeObjectURL}=URL;URL.createObjectURL=()=>'blob:test/river';URL.revokeObjectURL=()=>{};
+ try{
+  await render(h(ui.ToolboxProvider,{runtime:rt,registry,user:{id:'u6',accessLevel:'MEMBER'},map,plugins:[photoTool()]},h(ToolOverlays)));
+  const marker=document.querySelector('button[aria-label="ดูภาพ river.jpg"]') as HTMLButtonElement;
+  assert.ok(marker);assert.equal(marker.style.left,'100px');assert.equal(marker.style.top,'100px');
+  click('button[aria-label="ดูภาพ river.jpg"]');
+  assert.ok(document.querySelector('[role=dialog][aria-label="river.jpg"]'));
+ }finally{URL.createObjectURL=createObjectURL;URL.revokeObjectURL=revokeObjectURL;}
+});
+test('messages override one string per group and keep the rest',async()=>{
+ const {dataFilesTool}=await import('../src/ui/plugins/data-files.js');
+ const {map}=fakeMap();
+ await render(h(ui.ToolboxProvider,{runtime:runtime(),registry:createLayerRegistry([],'MEMBER'),user:{id:'u7',accessLevel:'MEMBER'},map,plugins:[dataFilesTool()],messages:{dataFilesTool:{title:'Data files'}}},h(ToolboxPanel)));
+ assert.match(container.textContent??'',/Data files/);
+ assert.match(container.textContent??'',/Layer My Data Files \(0\)/);
+});

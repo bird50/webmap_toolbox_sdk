@@ -3,17 +3,18 @@
 @import "tailwindcss/utilities.css" layer(utilities);
 @source "./ui";
 @source "./adapters";
+/* Colour tokens: set any --sdk-* variable on .toolbox-sdk or :root to theme the tools; fallbacks are the defaults. */
 @theme inline {
  --color-background:var(--sdk-background,#fff);
  --color-primary:var(--sdk-primary,#0f766e);
  --color-primary-foreground:#fff;
  --color-secondary:#f1f5f9;
  --color-secondary-foreground:#0f172a;
- --color-accent:#f0fdfa;
- --color-accent-foreground:#115e59;
+ --color-accent:var(--sdk-primary-soft,#f0fdfa);
+ --color-accent-foreground:var(--sdk-primary-strong,#115e59);
  --color-input:#cbd5e1;
- --color-ring:#0d9488;
- --color-muted-foreground:#64748b;
+ --color-ring:var(--sdk-ring,#0d9488);
+ --color-muted-foreground:var(--sdk-muted,#64748b);
 }
 .sdk-settings-panel {right:var(--sdk-settings-right,12px);top:var(--sdk-settings-top,80px)}
 .sdk-drawing-toolbar {right:var(--sdk-drawing-right,56px);top:var(--sdk-drawing-top,56px)}

@@ -1,0 +1,28 @@
+/** Thai defaults for this component's user-facing text. Functions take the values they interpolate. */
+export const photoSettingsTh={
+ title:"จัดการ My Photos",
+ description:"อ่านพิกัด GPS จาก EXIF ของแต่ละภาพโดยอัตโนมัติ",
+ close:"ปิดการจัดการ My Photos",
+ intro:"รูปที่กด Add to My Photos จะเก็บบนเบราว์เซอร์นี้ 15 วัน ไม่อัปโหลดไปเซิร์ฟเวอร์ การล้างข้อมูลเว็บไซต์อาจทำให้รูปหายก่อนกำหนด อัปโหลดเฉพาะรูปที่เลือกเมื่อกด Save & Share Public",
+ opening:"กำลังเปิดที่เก็บรูปบนเครื่อง…",
+ choose:"เลือกภาพถ่าย",
+ skipped:"ข้ามไฟล์ที่ไม่รองรับหรือมีขนาดเกิน 10 MB ต่อรูปแล้ว",
+ formats:"เลือกหลายรูปได้ · JPG, PNG, WebP · ไม่เกิน 10 MB ต่อรูป",
+ savedOnAdd:"บันทึกบนเครื่องเมื่อกด Add to My Photos",
+ selected:(n:number)=>`เลือกแล้ว ${n} รูป`,
+ reading:"กำลังอ่านพิกัดจากรูป…",
+ gpsSummary:(withGps:number,without:number)=>`มีพิกัด ${withGps} รูป · ไม่มีพิกัดหรืออ่านไม่ได้ ${without} รูป`,
+ gpsOnly:"เพิ่มเฉพาะภาพที่มีพิกัด GPS ที่ถูกต้อง",
+ saved:(n:number,until:string)=>`บันทึก ${n} รูปบนเครื่องแล้ว เก็บถึง ${until} (15 วัน)`,
+ saveFailed:"บันทึกรูปไม่สำเร็จ พื้นที่อาจเต็มหรือเบราว์เซอร์ไม่อนุญาต กรุณาตรวจสอบพื้นที่แล้วลองใหม่ รูปที่เลือกยังอยู่",
+ saving:"กำลังบันทึก…",
+ add:"Add to My Photos",
+ previewAlt:(name:string)=>`ภาพตัวอย่าง ${name}`,
+ previewFailed:(name:string)=>`ไม่สามารถแสดงภาพ ${name} ได้ กรุณาเลือกภาพอื่น`,
+ gps:(lat:string,lng:string)=>`GPS: ${lat}, ${lng}`,
+ noGps:"ไม่พบพิกัด GPS หรืออ่านไม่ได้ — ไม่เพิ่มลงแผนที่",
+ capturedAt:"วันที่ถ่าย:",
+ noCapturedAt:"ไม่พบวันที่ถ่ายใน EXIF (เก็บบนเครื่องได้ แต่แชร์ Public ไม่ได้)",
+ remove:(name:string)=>`นำภาพ ${name} ออก`,
+};
+export type PhotoSettingsMessages=typeof photoSettingsTh;

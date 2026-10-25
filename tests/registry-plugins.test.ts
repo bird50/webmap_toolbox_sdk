@@ -55,9 +55,9 @@ test('update batches visibility/opacity, clamps, ignores unknown IDs and skips n
  assert.equal(emits(),1);
  registry.setOpacity('b',-1);assert.equal(registry.getSnapshot().opacity.b,0);assert.equal(emits(),2);
 });
-test('isToolLayer accepts 1.0 fields and 2.0 owners only',()=>{
+test('isToolLayer is true only for layers with an owner',()=>{
  assert.equal(isToolLayer(layer('a')),false);
- for(const extra of [{owner:{toolId:'t',key:'k'}},{toolboxId:'t'},{photoDataKey:'my-photos' as const},{drawingDataKey:'my-drawing' as const}])assert.equal(isToolLayer(layer('a',extra)),true);
+ assert.equal(isToolLayer(layer('a',{owner:{toolId:'t',key:'k'}})),true);
 });
 
 const plugin=(id:string,extra:Partial<ToolPlugin>={}):ToolPlugin=>({id,title:id,version:'1.0.0',apiVersion:'2.0',accessLevel:'PUBLIC',requires:[],Panel:()=>null,...extra});

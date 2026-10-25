@@ -1,108 +1,103 @@
 # Toolbox SDK
 
-Reusable React/TypeScript Photo, Draw and Data Files tools with three independently mounted panels: **Map**, **Layer**, **Toolbox**. `@thaiwater/toolbox-sdk` contains no imports from ThaiWater, Next.js, Prisma or the service source. The current MapLibre renderer is shipped separately from the engine-neutral core and drawing UI.
+Reusable Photo, Draw and Data Files tools for any React web map laid out as three panels: **Map**, **Layer**, **Toolbox**. Each tool is a plugin that owns its layers, state, map overlay and dialogs; the host supplies the map (through a `MapAdapter`), the layer registry and the gateway. `@thaiwater/toolbox-sdk` contains no imports from ThaiWater, Next.js, Prisma or the service source, and its tools run on any engine with an adapter (MapLibre ships with the package; `examples/leaflet` shows Leaflet).
 
 ## Build and install
 
-Node 22.14+ and npm. Run `npm install`, `npm run lint`, `npm run build`, `npm test`. Build emits JavaScript, TypeScript declarations and CSS to `dist/` (ignored by Git). In another application: `npm install ../toolbox_sdk --install-links`. `npm pack` produces an installable archive for CI or an internal npm registry; publishing is not performed automatically.
+Node 22.14+ and npm. Run `npm install`, `npm run lint`, `npm run build`, `npm test`. Build emits JavaScript, TypeScript declarations and CSS to `dist/` (ignored by Git). In another application: `npm install ../toolbox_sdk --install-links` (npm only refreshes the copied package when its version changes). `npm pack` produces an installable archive for CI or an internal npm registry; publishing is not performed automatically.
 
-`npm test` runs node:test suites without a browser: `sdk.test.ts` (registry, storage, client, adapter), `core-data-files.test.ts` (CSV/GeoJSON/KML parsers; `@xmldom/xmldom` stands in for the browser `DOMParser`), `core-contracts.test.ts` (drawing geometry and contract, public photo query, share tags, Host API 1.0) and `ui-smoke.test.ts` (server-rendered markup of the tool panels, `ToolboxHost`, `LayerPanel`, `WorkspacePanels`), `registry-plugins.test.ts` (owned layers, batched updates, Tool API 2.0 checks) `maplibre-surface.test.ts` (GeoJSON surface against an in-memory MapLibre stand-in, pointer events, style swaps), `workspace.test.ts` (map slot, tool state, plugin layer registration) `runtime-dom.test.ts` (provider, panels, overlays and dialogs rendered with react-dom in happy-dom) and `plugins-dom.test.ts` (built-in plugins against fake-indexeddb and a recording map adapter). Hooks, effects and map overlays are not exercised; check them with the host application's manual regression checklist.
+`npm test` runs node:test suites without a browser: registry/storage/client/adapter (`sdk.test.ts`), CSV/GeoJSON/KML parsers (`core-data-files.test.ts`, with `@xmldom/xmldom` standing in for `DOMParser`), drawing geometry and contracts (`core-contracts.test.ts`), tool panel markup (`ui-smoke.test.ts`), owned layers and capabilities (`registry-plugins.test.ts`), the MapLibre GeoJSON surface against an in-memory stand-in (`maplibre-surface.test.ts`), the workspace store (`workspace.test.ts`), and the provider and built-in plugins rendered with react-dom in happy-dom (`runtime-dom.test.ts`, `plugins-dom.test.ts`). Real map rendering is checked with the example apps and the host's manual regression checklist.
+
+## Quick start
 
 ```tsx
-import {createPublicClient} from '@thaiwater/toolbox-sdk';
+import {createLayerRegistry,createPublicClient} from '@thaiwater/toolbox-sdk';
 import {createBrowserStorage} from '@thaiwater/toolbox-sdk/storage';
-import {ToolboxProvider,WorkspacePanels} from '@thaiwater/toolbox-sdk/react';
+import {ToolboxProvider,ToolboxPanel,ToolOverlays,ToolDialogs,LayerPanel,dataFilesTool,drawTool,photoTool,navigationTool} from '@thaiwater/toolbox-sdk/react';
+import {MapLibreToolboxBridge} from '@thaiwater/toolbox-sdk/maplibre';
 import '@thaiwater/toolbox-sdk/styles.css';
+
 const runtime={appId:'my-system',storage:createBrowserStorage('my-system'),client:createPublicClient()};
-// Mount once above your toolbox panels and map overlays.
-<ToolboxProvider runtime={runtime}>
-  <WorkspacePanels map={mapView} layer={layerView} toolbox={toolboxView}/>
+const registry=createLayerRegistry(systemLayers,'MEMBER');            // module-level or useState: keep stable
+const plugins=[dataFilesTool(),photoTool(),drawTool(),navigationTool()];
+
+<ToolboxProvider runtime={runtime} registry={registry} plugins={plugins} user={{id:userId,accessLevel:'MEMBER'}} toolLayers="start">
+  <Map>…<MapLibreToolboxBridge><ToolOverlays/></MapLibreToolboxBridge></Map>   {/* Map Panel */}
+  <LayerPanel registry={registry}/>                                             {/* Layer Panel, or your own UI via useLayers() */}
+  <ToolboxPanel/>                                                               {/* Toolbox Panel */}
+  <ToolDialogs/>
 </ToolboxProvider>
 ```
 
-Map, Layer and Toolbox are slots: applications decide placement, dimensions, visibility and their own UI. `LayerPanel` is an optional reference UI backed by `createLayerRegistry` / `useLayerRegistry`. Register/remove/reorder layers there; both Layer and Toolbox controls must use the same registry. `WorkspacePanels` handles narrow screens; applications can replace it completely. CSS does not import Tailwind preflight. Import the supplied CSS in apps without Tailwind; existing Tailwind apps may scan `src/ui` and `src/adapters` instead. Theme and placement variables include `--sdk-primary`, `--sdk-font`, `--sdk-settings-right`, `--sdk-settings-top`, `--sdk-drawing-right` and `--sdk-drawing-top`.
+Map, Layer and Toolbox are slots: the host decides placement, dimensions and visibility (`WorkspacePanels` is an optional reference layout). Keep `plugins`, `registry` and `messages` stable and remount the provider (`key={user.id}`) when the identity changes. Access levels are presentation only, never server authorization.
 
 ## Entry points
 
 | Import | Responsibility |
 | --- | --- |
-| package root | Core layer/map contracts, registry, public client and validation |
-| `/react` | Provider, panels, ToolHost, Photo/Draw/Data Files UI and per-tool service types |
-| `/maplibre` | MapLibre bridge/adapter, PhotoLayers, RegistryLayers |
+| package root | Layer/map contracts, `createLayerRegistry`, workspace store, public client, drawing/photo-share/public-query contracts |
+| `/react` | `ToolboxProvider`, `ToolboxPanel`/`ToolOverlays`/`ToolDialogs`, hooks, built-in plugins, tool UI components, `thMessages`, `WorkspacePanels`/`LayerPanel` |
+| `/maplibre` | `createMapLibreAdapter`, `MapLibreToolboxBridge`, MapLibre GeoJSON surface, `RegistryLayers` |
 | `/storage` | Browser storage factories with app namespaces |
 | `/core/drawing`, `/core/data-files`, `/core/photo-gps` | Geometry, file parsers and EXIF helpers |
+| `/styles.css` | Utilities and tokens for hosts without Tailwind |
 
-Core does not import React or a map engine. Photo markers/popups currently require the MapLibre renderer; to use another engine implement `MapAdapter` plus an equivalent photo/GeoJSON renderer. DrawingWorkspace uses only the adapter, and its SVG overlay preserves text, styles, arrows and rotation. MapLibre peer dependencies are optional for core-only clients. New installations should use a patched MapLibre 6.x; 5.x compatibility exists for existing hosts and does not resolve their upstream security advisories.
+Only these paths are public API; files under `dist/` are not importable individually.
 
-Inside a react-map-gl Map mount `<MapLibreToolboxBridge>` around drawing and photo overlays. The bridge owns subscriptions, disposes its own listeners on unmount and never destroys the host map. A different engine mounts `<MapAdapterProvider adapter={adapter}>`. The adapter provides viewport, projection, navigation, bounds fitting and events. Optional `WebmapHost.map` / `.registry` extend the compatible API 1.0; tools declare capabilities they need. UI access levels are presentation only, never server authorization.
+## Map adapters
 
-## Tool API 2.0 preview (0.2.0, additive)
+A `MapAdapter` provides size, zoom, bounds, `project`/`unproject`, `navigate`, `fitBounds` and `move`/`moveend`/`resize`/`load` events. Optional parts unlock more capabilities, which `mapCapabilities(adapter)` derives automatically:
 
-These contracts land ahead of the plugin runtime; nothing mounts them yet and every 1.0 API keeps working unchanged.
+| Optional member | Capability | Used by |
+| --- | --- | --- |
+| `onPointer`/`offPointer` (`click`, `pointermove`; GeoJSON hits by registry layer ID) | `map.pointer` | host identify |
+| `getContainer()` | `map.overlay` | — |
+| `geojson` surface (`set`, `remove`, `setVisible`, `setOpacity`, `order` first = top, `layerIds`) | `map.geojson` | Data Files |
 
-- `LayerDefinition.owner {toolId,key}` marks tool-owned layers; `photoDataKey`/`drawingDataKey` are deprecated and stay for 1.0 hosts. `isToolLayer()` accepts either form.
-- `LayerRegistry.registerOwned(toolId, layers, placement)` adds a tool's layers all-or-nothing with one change event (`'start'`, `'end'` or `{before:id}`); `unregisterOwner(toolId)` removes them; `update({visible,opacity})` batches changes and skips no-ops. `useLayerRegistry` setters now emit once per call.
-- `MapAdapter` gains optional `onPointer`/`offPointer` (`click`, `pointermove`; hits are reported by registry layer ID), `getContainer()` for HTML/SVG overlays and a `geojson` surface (`set`, `remove`, `setVisible`, `setOpacity`, `order` first = top, `layerIds`). `mapCapabilities(adapter)` derives `map.pointer`, `map.geojson` and `map.overlay` from what an adapter actually implements; custom adapters without them stay valid.
-- The MapLibre adapter implements all three. Its GeoJSON surface re-adds layers after a basemap/style swap and reuses RegistryLayers IDs and paint (`registryLayerSpecs`), so never render one registry layer through both. Layers missing from the last `order()` call sit below ordered ones.
-- `ToolPlugin` (`apiVersion:"2.0"`, `layers`, `Panel`, `Overlay`, `Dialogs`), `pluginAvailable()` and `definePlugins()` (unique tool IDs, one owner per layer ID) describe self-contained tools for the upcoming runtime.
+Drawing and photo overlays are HTML/SVG positioned with `project`, so they need no engine-specific code. Inside react-map-gl mount `<MapLibreToolboxBridge>` (it attaches its adapter to the provider and never destroys the host map); any other engine mounts `<MapAdapterProvider adapter={adapter}>` around `ToolOverlays`. The MapLibre GeoJSON surface re-adds layers after basemap/style swaps, reuses `RegistryLayers` IDs and paint (`registryLayerSpecs`), and only reorders after something was re-added or the order changed (reordering on every `styledata` would keep MapLibre from ever firing `load`). Layers missing from the last `order()` call sit below ordered ones; HTML/SVG overlays sit above engine layers.
 
-## Tool API 2.0 runtime (0.3.0, additive)
+## Built-in tools
 
-```tsx
-<ToolboxProvider runtime={runtime} registry={registry} plugins={plugins} user={{id:userId,accessLevel}} toolLayers="start">
-  <Map>…<MapLibreToolboxBridge><ToolOverlays/></MapLibreToolboxBridge></Map>  {/* Map Panel */}
-  <LayerPanel registry={registry}/>                                              {/* Layer Panel, or the host's own UI via useLayers() */}
-  <ToolboxPanel/>                                                                {/* Toolbox Panel */}
-  <ToolDialogs/>
-</ToolboxProvider>
-```
+| Factory | Layers (owner key → default ID) | Requires |
+| --- | --- | --- |
+| `dataFilesTool()` | `files` → `my-data-files` | `map.geojson` |
+| `drawTool()` | `mine` → `my-drawing`, `public` → `public-drawing` | `map.viewport`, `map.project`, `map.events` |
+| `photoTool()` | `mine` → `my-photos`, `public` → `public-photos` | `map.viewport`, `map.project`, `map.events` |
+| `navigationTool({home})` | none | `map.navigate` |
 
-- `ToolboxProvider` without `plugins` behaves exactly as before. With plugins it validates them (`definePlugins`), mounts those allowed by `user.accessLevel` and the capabilities in effect (`layers.control`, `layers.register`, plus `map.navigate` and `mapCapabilities()` once a map adapter is attached, plus any host `capabilities`), and registers each mounted tool's `layers` via `registerOwned` at the `toolLayers` end of the list, removing them when the tool or provider unmounts.
-- A tool whose layer IDs clash with the host's is not mounted and `ToolboxPanel` shows a notice; a tool that throws while rendering is replaced by a notice. Other tools keep working.
-- Every Panel, Overlay and Dialogs component is wrapped in `ToolScope` and receives `{toolId}`. Inside a tool: `useToolState(key, initial)` is a useState shared by that tool's components for the provider's lifetime; `useToolLayers()`, `useLayer(id)` and `useLayers()` read and change the shared registry; `useToolUser()` gives the storage identity; `useMapAdapter()` returns the map in scope or the one attached to the workspace (undefined until ready); `useToolMessages()` gives runtime text.
-- `MapAdapterProvider` and `MapLibreToolboxBridge` attach their adapter to the surrounding provider automatically; `ToolOverlays` renders nothing until a map is in scope.
-- `messages` overrides runtime text (`thMessages` is the default). Keep `plugins`, `registry` and `messages` stable and remount the provider (`key={user.id}`) when the identity changes.
+Factories take `id`, `title`, `accessLevel` and per-layer overrides (`layer`, `mine`, `shared`): any `LayerDefinition` field, or `false` to drop that layer. `createPhotoTool(Overlay, requires, options)` swaps the photo renderer. Tool layers are filtered by the registry's access level like any layer, so a `PUBLIC` registry hides the `MEMBER` "My …" layers.
 
-## Built-in tool plugins (0.4.0)
+## Writing a tool
 
-| Factory | Entry | Layers (owner key → default ID) | Requires |
-| --- | --- | --- | --- |
-| `dataFilesTool()` | `/react` | `files` → `my-data-files` | `map.geojson` |
-| `drawTool()` | `/react` | `mine` → `my-drawing`, `public` → `public-drawing` | `map.viewport`, `map.project`, `map.events` |
-| `photoTool()` | `/maplibre` | `mine` → `my-photos`, `public` → `public-photos` | `map.viewport`, `map.events` (+ react-map-gl) |
-| `navigationTool({home})` | `/react` | none | `map.navigate` |
+A `ToolPlugin` has `id`, `title`, `version`, `apiVersion:"2.0"`, `accessLevel`, `requires`, optional `layers` (registered with `owner.toolId` while the tool is mounted), `Panel`, `Overlay` (inside the map), `Dialogs`, a headless `Controller` for shared effects (storage, timers, object URLs) and `layerSettings` (owner key → dialog name). The provider mounts tools whose access level and capabilities are met; a tool whose layer IDs clash with the host's is not mounted and `ToolboxPanel` says so, and a tool that throws while rendering is replaced by a notice.
 
-Each factory takes `id`, `title`, `accessLevel` and per-layer overrides (`layer`, `mine`, `shared`): any `LayerDefinition` field, or `false` to drop that layer. Defaults keep the 0.1.x IDs, colours and the deprecated `photoDataKey`/`drawingDataKey`/`toolboxId`, so existing hosts and saved browser data keep working. `createPhotoTool(Overlay, requires, options)` builds the photo tool with another engine's renderer.
+Inside a tool: `useToolState(key, initial)` (state shared by the tool's components), `useToolDialog(name)` (one dialog open at a time across the workspace; `returnFocus` is the opener), `useToolLayers()`, `useLayer(id)`, `useLayers()`, `useMapAdapter()`, `useToolUser()`, `useToolMessages()`. Hosts use `useLayerSettings(layerId)` for settings buttons in their Layer Panel and tool-specific hooks such as `useDrawingToolbar()`.
 
-- Plugins may declare a headless `Controller` (mounted by the provider for the tool's lifetime) for loading and timers shared by its views: Data Files and Photo use it for browser storage, refresh and object URLs.
-- `useToolDialog(name)` opens a tool dialog through one workspace-wide slot, so opening any tool dialog closes the others; `returnFocus` is the element that opened it. `ToolPlugin.layerSettings` maps owner keys to dialog names and `useLayerSettings(layerId)` lets a host Layer Panel show a settings button for tool layers (Data Files → `files`, Public Photos → `public`).
-- `useDrawingToolbar()` exposes the drawing toolbar state to the host, e.g. to collapse panels on narrow screens.
-- `ToolOverlays` passes the attached map to overlays when it is not below a `MapAdapterProvider`; MapLibre renderers (Photo) still need to sit inside `MapLibreToolboxBridge`.
-- Tool layers are filtered by the registry's access level like any layer: a `PUBLIC` registry hides the `MEMBER` "My …" layers even when the tool is available.
+## Text and theme
+
+All UI text comes from `thMessages`, grouped by component (`photoSettings`, `drawingToolbar`, `dataFilesTool`, …). Pass `ToolboxProvider messages={{dataFilesTool:{title:'Data files'}}}`: each group may be partial and is merged over the Thai defaults. Validation errors raised by core parsers and storage remain Thai and reach the UI as `Error.message`.
+
+Colours are CSS variables with the previous defaults as fallbacks: `--sdk-primary`, `--sdk-primary-soft`, `--sdk-primary-strong`, `--sdk-ring`, `--sdk-muted`, `--sdk-muted-strong`, `--sdk-text-secondary`, `--sdk-border`, `--sdk-border-subtle`, `--sdk-surface-muted`, `--sdk-warning`, `--sdk-danger`, `--sdk-info` and a few soft variants. Placement and font: `--sdk-font`, `--sdk-settings-right`, `--sdk-settings-top`, `--sdk-drawing-right`, `--sdk-drawing-top`. CSS does not import Tailwind preflight; import `styles.css` in apps without Tailwind, or let a Tailwind host scan `src/ui` and `src/adapters`.
 
 ## Storage and service
 
-My Photos, My Drawing and Data Files stay in IndexedDB. Database names contain appId/tool/schema version; records are scoped to userId. Photo retention is 15 days from add; drawing retention is 15 days from explicit save. Reads do not extend expiry. `createBrowserStorage(appId, legacyNames)` preserves an existing host's databases without uploading or silently migrating them. Keep runtime instances stable, and remount a workspace on identity changes.
+My Photos, My Drawing and Data Files stay in IndexedDB. Database names contain appId/tool/schema version; records are scoped to userId. Photo retention is 15 days from add; drawing retention is 15 days from explicit save. Reads do not extend expiry. `createBrowserStorage(appId, legacyNames)` preserves an existing host's databases without uploading or silently migrating them.
 
-`PublicClient` talks to the host gateway (`/api/photo-shares`, `/api/public/photos`, `/api/drawing-shares`, `/api/public/drawings` by default). Configure `baseUrl`, endpoint paths or an injected fetch function. Requests preserve AbortSignals. Instance-scoped refresh events prevent unrelated apps from sharing event listeners. No service key is accepted or stored by the browser SDK. Your backend must check session/origin/access and then call Toolbox Service using its secret. The service can be deployed separately per application. Sharing a service between organizations requires tenant-aware server authorization; this SDK alone does not implement multi-tenancy.
+`PublicClient` talks to the host gateway (`/api/photo-shares`, `/api/public/photos`, `/api/drawing-shares`, `/api/public/drawings` by default). Configure `baseUrl`, endpoint paths or an injected fetch function. Requests preserve AbortSignals. Instance-scoped refresh events prevent unrelated apps from sharing event listeners. No service key is accepted or stored by the browser SDK. Your backend must check session/origin/access and then call Toolbox Service using its secret. Sharing a service between organizations requires tenant-aware server authorization; this SDK alone does not implement multi-tenancy. Prefer same-origin proxies; never expose TOOLBOX_SERVICE_KEY to the browser.
 
-Third-party URLs require appropriate gateway CORS/cookie handling. Prefer same-origin proxies; configure a fetch adapter for cross-origin authentication. Never expose TOOLBOX_SERVICE_KEY to the browser.
+## Examples
 
-## Independent example
-
-`examples/react-maplibre` imports this package only, never the ThaiWater source. It has Map, Layer and Toolbox panels, local Photo/Draw/Data Files workflows and configurable public calls.
+Both examples import this package only and use a blank background, so they need no tile key. Public endpoints are not included: run behind a same-origin gateway or pass `?gateway=https://your-gateway.example`; local tools work without it.
 
 ```bash
-cd examples/react-maplibre
+cd examples/react-maplibre   # or examples/leaflet
 npm install ../.. --install-links
 npm run build
 npm run dev
 ```
 
-Open http://localhost:4174. The map uses a blank background so it needs no tile API key or network tiles. Navigation and drawing coordinates are real WGS84. Public endpoints are intentionally not included in this frontend-only example: mount it behind a same-origin gateway, or pass `?gateway=https://your-gateway.example` and configure that gateway's CORS/authentication. Local tools work while the public service is unavailable.
+MapLibre: http://localhost:4174 (the build copies MapLibre 6's worker next to the bundle). Leaflet: http://localhost:4175 (`leaflet-adapter.ts` is a complete `MapAdapter` with a GeoJSON surface and pointer hits).
 
-## Compatibility and release discipline
+## Compatibility
 
-Package version: 0.4.0; host contract: 1.0 (stable) and Tool API 2.0 (preview: runtime and built-in tool plugins); storage schema: v1; service HTTP contract remains unchanged. Treat each as a separate version. Change contracts with tests and a migration note. `tests/sdk.test.ts` exercises app/user isolation, expiry, blob persistence, layer synchronization, event cleanup and endpoint configuration. Do not load unreviewed toolbox JavaScript from arbitrary URLs.
-
-Layer ordering controls GeoJSON MapLibre layers within their rendering surface. Photo markers and the SVG drawing overlay retain separate surfaces; ordering these across surfaces requires a host-specific compositing policy.
+Package 1.0.0; Tool API 2.0; storage schema v1; service HTTP contract unchanged. Treat each as a separate version and change contracts with tests and a migration note (see `CHANGELOG.md`). Do not load unreviewed toolbox JavaScript from arbitrary URLs.

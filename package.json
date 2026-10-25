@@ -1,12 +1,13 @@
 {
   "name": "@thaiwater/toolbox-sdk",
-  "version": "0.4.0",
+  "version": "1.0.0",
   "type": "module",
   "private": true,
   "files": [
     "dist",
     "src",
-    "README.md"
+    "README.md",
+    "CHANGELOG.md"
   ],
   "exports": {
     ".": {
@@ -29,10 +30,20 @@
       "import": "./dist/storage/index.js",
       "default": "./dist/storage/index.js"
     },
-    "./*": {
-      "types": "./dist/*.d.ts",
-      "import": "./dist/*.js",
-      "default": "./dist/*.js"
+    "./core/drawing": {
+      "types": "./dist/core/drawing.d.ts",
+      "import": "./dist/core/drawing.js",
+      "default": "./dist/core/drawing.js"
+    },
+    "./core/data-files": {
+      "types": "./dist/core/data-files.d.ts",
+      "import": "./dist/core/data-files.js",
+      "default": "./dist/core/data-files.js"
+    },
+    "./core/photo-gps": {
+      "types": "./dist/core/photo-gps.d.ts",
+      "import": "./dist/core/photo-gps.js",
+      "default": "./dist/core/photo-gps.js"
     },
     "./styles.css": "./dist/styles.css"
   },

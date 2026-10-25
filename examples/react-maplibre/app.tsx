@@ -2,8 +2,8 @@ import {createRoot} from 'react-dom/client';
 import Map,{NavigationControl} from 'react-map-gl/maplibre';
 import {createLayerRegistry,createPublicClient} from '@thaiwater/toolbox-sdk';
 import {createBrowserStorage} from '@thaiwater/toolbox-sdk/storage';
-import {ToolboxProvider,WorkspacePanels,LayerPanel,ToolboxPanel,ToolOverlays,ToolDialogs,dataFilesTool,drawTool,navigationTool} from '@thaiwater/toolbox-sdk/react';
-import {MapLibreToolboxBridge,photoTool} from '@thaiwater/toolbox-sdk/maplibre';
+import {ToolboxProvider,WorkspacePanels,LayerPanel,ToolboxPanel,ToolOverlays,ToolDialogs,dataFilesTool,drawTool,navigationTool,photoTool} from '@thaiwater/toolbox-sdk/react';
+import {MapLibreToolboxBridge} from '@thaiwater/toolbox-sdk/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import '@thaiwater/toolbox-sdk/styles.css';
 

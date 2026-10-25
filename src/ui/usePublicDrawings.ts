@@ -1,6 +1,6 @@
 "use client";
-import {useEffect,useState} from "react";
-import {useToolboxMap as useMap,useToolbox} from "./context.js";
+import {useEffect,useRef,useState} from "react";
+import {useToolboxMap as useMap,useToolbox,useToolMessages} from "./context.js";
 import {photoViewportBbox} from "../core/public-photo-query.js";
 import {drawingSchema} from "../core/drawing-contract.js";
 import {z} from "zod";
@@ -9,6 +9,7 @@ const responseSchema=z.object({drawings:z.array(drawingSchema.safeExtend({shareN
 export function usePublicDrawings(layer:LayerDefinition|undefined,visible:boolean){
  const {current:map}=useMap();
  const runtime=useToolbox();
+ const t=useToolMessages().publicDrawings;const tRef=useRef(t);tRef.current=t;
  const [state,setState]=useState<{drawings:z.infer<typeof responseSchema>["drawings"];message:string;error:boolean}>({drawings:[],message:"",error:false});
  useEffect(()=>{
  if(!map||!visible||!layer)return;
@@ -16,14 +17,14 @@ export function usePublicDrawings(layer:LayerDefinition|undefined,visible:boolea
  async function load(){
  controller?.abort();controller=new AbortController();const active=controller;
  const bounds=map!.getBounds();if(!bounds)return;
- if(map!.getZoom()<layer!.minZoom||map!.getZoom()>=layer!.maxZoom){setState({drawings:[],message:"ซูมเพื่อดู Public Drawing",error:false});return;}
- setState({drawings:[],message:"กำลังโหลด Public Drawing…",error:false});
+ if(map!.getZoom()<layer!.minZoom||map!.getZoom()>=layer!.maxZoom){setState({drawings:[],message:tRef.current.zoomIn,error:false});return;}
+ setState({drawings:[],message:tRef.current.loading,error:false});
  try{
  const bbox=photoViewportBbox(bounds.getWest(),bounds.getSouth(),bounds.getEast(),bounds.getNorth());
  const response=await runtime.client.request("drawings",{cache:"no-store",signal:active.signal},new URLSearchParams({bbox,limit:"50"}));
  if(!response.ok)throw new Error();const result=responseSchema.parse(await response.json());
- if(!disposed&&!active.signal.aborted)setState({drawings:result.drawings,message:result.hasMore?"มีรูปวาดเพิ่มเติม กรุณาซูมเข้า":`${result.drawings.length} วัตถุ Public ในพื้นที่นี้`,error:false});
- }catch{if(!disposed&&!active.signal.aborted)setState({drawings:[],message:"โหลด Public Drawing ไม่สำเร็จ ลองปิด–เปิด Layer อีกครั้ง",error:true});}
+ if(!disposed&&!active.signal.aborted)setState({drawings:result.drawings,message:result.hasMore?tRef.current.hasMore:tRef.current.count(result.drawings.length),error:false});
+ }catch{if(!disposed&&!active.signal.aborted)setState({drawings:[],message:tRef.current.failed,error:true});}
  }
  function schedule(){controller?.abort();clearTimeout(timer);timer=setTimeout(()=>void load(),250);}
  map.on("load",schedule);map.on("moveend",schedule);const unsubscribe=runtime.client.subscribe("drawings",schedule);schedule();

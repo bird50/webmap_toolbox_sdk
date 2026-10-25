@@ -5,5 +5,5 @@ import {Component,type ReactNode} from "react";
 export class ToolBoundary extends Component<{children:ReactNode;message:string},{failed:boolean}> {
   state={failed:false};
   static getDerivedStateFromError(){return {failed:true};}
-  render(){return this.state.failed?<p role="alert" className="rounded-lg border p-3 text-xs text-amber-700">{this.props.message}</p>:this.props.children;}
+  render(){return this.state.failed?<p role="alert" className="rounded-lg border p-3 text-xs text-[color:var(--sdk-warning,#b45309)]">{this.props.message}</p>:this.props.children;}
 }

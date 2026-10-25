@@ -1,9 +1,10 @@
 "use client";
 import {useEffect,useRef,type ComponentType} from "react";
+import {PhotoOverlay,type PublicPhotoStatus} from "../PhotoOverlay.js";
 import type {GeotaggedPhoto} from "../../core/photo-gps.js";
 import {emptyPublicPhotoFilters,type PublicPhotoFilters} from "../../core/public-photo-query.js";
 import type {StoredPhoto} from "../../storage/photo-storage.js";
-import {useLayers,useMapAdapter,useToolbox,useToolDialog,useToolLayers,useToolState,useToolUser} from "../context.js";
+import {useLayers,useMapAdapter,useToolbox,useToolDialog,useToolLayers,useToolMessages,useToolState,useToolUser} from "../context.js";
 import {TOOL_API_VERSION,type ToolComponentProps,type ToolPlugin,type WebmapCapability} from "../contracts.js";
 import {PhotoSettings} from "../PhotoSettings.js";
 import {PublicPhotoSettings} from "../PublicPhotoSettings.js";
@@ -12,7 +13,6 @@ import {baseLayer,ownedLayer,toolLayer,type ToolLayerOptions,type ToolPluginOpti
 
 export const PHOTO_TOOL_ID="toolbox.photo";
 export type LocalPhoto=StoredPhoto&{url:string};
-export type PublicPhotoStatus={count:number;loading:boolean;error:string;hasMore:boolean};
 type PhotoStore={photos:LocalPhoto[];ready:boolean;message:string;add:(photos:GeotaggedPhoto[])=>Promise<StoredPhoto[]>};
 const pending:PhotoStore={photos:[],ready:false,message:"",add:async()=>[]};
 const loadingStatus:PublicPhotoStatus={count:0,loading:true,error:"",hasMore:false};
@@ -27,7 +27,8 @@ function Controller(){
  const {storage}=useToolbox(),userId=useToolUser().id;
  const [,setStore]=useToolState("photos",pending);
  const mine=ownedLayer(useToolLayers(),"mine"),{registry}=useLayers(),map=useMapAdapter();
- const latest=useRef({mine,registry,map});latest.current={mine,registry,map};
+ const t=useToolMessages().photoPlugin;
+ const latest=useRef({mine,registry,map,t});latest.current={mine,registry,map,t};
  useEffect(()=>{
   let cancelled=false;const urls=new Set<string>();
   const withUrl=(record:StoredPhoto):LocalPhoto=>{const url=URL.createObjectURL(record.blob);urls.add(url);return {...record,url};};
@@ -46,9 +47,9 @@ function Controller(){
     if(cancelled)return;
     const previous=[...urls];urls.clear();
     const photos=result.photos.map(withUrl);previous.forEach(url=>URL.revokeObjectURL(url));
-    setStore({photos,ready:true,message:result.removed?`ลบภาพที่ครบกำหนด 15 วันแล้ว ${result.removed} รูป`:"",add});
+    setStore({photos,ready:true,message:result.removed?latest.current.t.expired(result.removed):"",add});
    }catch{
-    if(!cancelled)setStore(current=>({...current,add,message:"ไม่สามารถเปิดที่เก็บรูปบนเครื่องได้ กรุณาอนุญาตการจัดเก็บข้อมูลเว็บไซต์แล้วเปิดหน้าใหม่"}));
+    if(!cancelled)setStore(current=>({...current,add,message:latest.current.t.storageUnavailable}));
    }
   }
   void restore();
@@ -77,15 +78,19 @@ function Dialogs(){
  </>;
 }
 export type PhotoToolOptions=ToolPluginOptions&{mine?:ToolLayerOptions;shared?:ToolLayerOptions};
-/**
- * My Photos (browser, 15 days) and Public Photos (viewport queries through the gateway). The map renderer is
- * engine-specific: use `photoTool` from `@thaiwater/toolbox-sdk/maplibre`, or pass your own Overlay here.
- */
+/** Engine-neutral markers and popup positioned through `MapAdapter.project`. */
+function Overlay(){
+ const layers=useToolLayers(),{visible,opacity}=useLayers(),{photos,filters,setStatus}=usePhotoToolState();
+ return <PhotoOverlay mine={ownedLayer(layers,"mine")} shared={ownedLayer(layers,"public")} photos={photos} visible={visible} opacity={opacity} publicFilters={filters} onPublicStatus={setStatus}/>;
+}
+/** My Photos (browser, 15 days) and Public Photos (viewport queries through the gateway); `createPhotoTool` swaps the map renderer. */
+export function photoTool(options?:PhotoToolOptions):ToolPlugin{return createPhotoTool(Overlay,["map.viewport","map.project","map.events"],options);}
+/** Photo tool with a custom map renderer; the renderer reads shared state through `usePhotoToolState`. */
 export function createPhotoTool(Overlay:ComponentType<ToolComponentProps>,requires:readonly WebmapCapability[],{id=PHOTO_TOOL_ID,title="Photo",accessLevel="MEMBER",mine,shared}:PhotoToolOptions={}):ToolPlugin{
  return {id,title,version:"2.0.0",apiVersion:TOOL_API_VERSION,accessLevel,requires,
   layers:[
-   ...toolLayer(id,"mine",{...baseLayer,id:"my-photos",title:"My Photos",description:"ภาพถ่ายที่เพิ่มในพื้นที่ปฏิบัติงานนี้",group:"ข้อมูลของฉัน",url:"local:my-photos",visible:true,color:"#8b5cf6",legend:"My Photos",popupFields:["name"],photoDataKey:"my-photos"},mine),
-   ...toolLayer(id,"public",{...baseLayer,id:"public-photos",title:"Public Photos",description:"ภาพเหตุการณ์ที่เผยแพร่สาธารณะในพื้นที่แผนที่",group:"ภาพถ่ายสาธารณะ",type:"REST_API",url:"/api/public/photos",accessLevel:"PUBLIC",color:"#0284c7",legend:"Public Photos",popupFields:["eventName","username","name","capturedAt","tags"],photoDataKey:"public-photos"},shared),
+   ...toolLayer(id,"mine",{...baseLayer,id:"my-photos",title:"My Photos",description:"ภาพถ่ายที่เพิ่มในพื้นที่ปฏิบัติงานนี้",group:"ข้อมูลของฉัน",url:"local:my-photos",visible:true,color:"#8b5cf6",legend:"My Photos",popupFields:["name"]},mine),
+   ...toolLayer(id,"public",{...baseLayer,id:"public-photos",title:"Public Photos",description:"ภาพเหตุการณ์ที่เผยแพร่สาธารณะในพื้นที่แผนที่",group:"ภาพถ่ายสาธารณะ",type:"REST_API",url:"/api/public/photos",accessLevel:"PUBLIC",color:"#0284c7",legend:"Public Photos",popupFields:["eventName","username","name","capturedAt","tags"]},shared),
   ],
   layerSettings:{public:"public"},Controller,Panel,Overlay,Dialogs};
 }

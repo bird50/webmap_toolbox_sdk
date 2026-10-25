@@ -1,0 +1,26 @@
+/** Thai defaults for this component's user-facing text. Functions take the values they interpolate. */
+export const dataFilesSettingsTh={
+ title:"จัดการ My Data Files",
+ description:"นำเข้า KML, GeoJSON หรือ CSV พร้อมคำอธิบาย",
+ close:"ปิด My Data Files",
+ storageNote:"เก็บบนเบราว์เซอร์นี้ 15 วันนับจากบันทึก ไม่อัปโหลดไปเซิร์ฟเวอร์ การล้างข้อมูลเว็บไซต์อาจทำให้ข้อมูลหายก่อนกำหนด",
+ added:"บันทึกและแสดงบนแผนที่แล้ว เก็บบนเครื่อง 15 วัน",
+ importFailed:"นำเข้าไฟล์ไม่สำเร็จ",
+ chooseFile:"เลือกไฟล์",
+ limits:"ไม่เกิน 5 MB / 5,000 รายการ / 50,000 พิกัดต่อไฟล์",
+ csvHint:"CSV: latitude/lat และ longitude/lon/lng · พิกัด WGS84",
+ totalLimits:"รวมไม่เกิน 20 ไฟล์ และ 10,000 รายการ",
+ fileDescription:"คำอธิบายไฟล์ (ไม่บังคับ)",
+ importing:"กำลังนำเข้า…",
+ add:"เพิ่มใน My Data Files",
+ opening:"กำลังเปิดที่เก็บข้อมูล…",
+ retry:"ลองเปิดที่เก็บข้อมูลอีกครั้ง",
+ files:(count:number)=>`ไฟล์บนเครื่อง (${count})`,
+ empty:"ยังไม่มีไฟล์ กดเลือกไฟล์เพื่อเริ่มต้น",
+ noDescription:"ไม่มีคำอธิบาย",
+ meta:(count:number,expiry:string)=>`${count} รายการ · หมดอายุ ${expiry}`,
+ remove:(name:string)=>`ลบ ${name}`,
+ removed:"ลบไฟล์แล้ว",
+ removeFailed:"ลบไฟล์ไม่สำเร็จ กรุณาลองใหม่",
+};
+export type DataFilesSettingsMessages=typeof dataFilesSettingsTh;

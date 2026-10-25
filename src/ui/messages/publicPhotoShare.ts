@@ -1,0 +1,25 @@
+/** Thai defaults for this component's user-facing text. Functions take the values they interpolate. */
+export const publicPhotoShareTh={
+ title:"บันทึกเพื่อแชร์ Public",
+ intro:"อัปโหลดภาพที่เลือกขึ้นเซิร์ฟเวอร์ ทุกคนที่มีลิงก์จะดูภาพ พิกัด และวันที่ถ่ายได้ ภาพ Public ไม่หมดอายุตามข้อมูลบนเครื่อง 15 วัน",
+ invalidFields:"ระบุชื่อเหตุการณ์ และแท็กไม่เกิน 10 แท็ก แท็กละไม่เกิน 50 ตัวอักษร ห้ามกำหนดแท็ก shareYYYY-MM-DD เอง",
+ pickCount:"เลือกภาพ 1–10 รูปจาก My Photos",
+ tooLarge:"ไฟล์ภาพรวมต้องไม่เกิน 25 MB",
+ failed:"แชร์ภาพไม่สำเร็จ",
+ failedRetry:"แชร์ภาพไม่สำเร็จ กรุณาลองใหม่",
+ event:"ชื่อเหตุการณ์",
+ eventPlaceholder:"เช่น น้ำท่วมบริเวณสะพาน",
+ autoTag:"แท็กอัตโนมัติ (แก้ไขไม่ได้)",
+ autoTagHint:"ระบบกำหนดตามวันที่บันทึกจริง เวลาไทย",
+ tags:"แท็กเพิ่มเติม (คั่นด้วย ,)",
+ tagsPlaceholder:"น้ำท่วม, เฝ้าระวัง",
+ photos:(n:number,max:number)=>`ภาพจาก My Photos · เลือกแล้ว ${n}/${max}`,
+ checkDate:"ตรวจวันที่ถ่ายจากไฟล์ก่อนบันทึก",
+ empty:"เพิ่มรูปลง My Photos ก่อนเลือกแชร์",
+ limits:"ครั้งละไม่เกิน 10 รูป รวมไม่เกิน 25 MB แต่ละรูปต้องมี GPS และวันที่ถ่ายใน EXIF",
+ saving:"กำลังบันทึก Public…",
+ save:"Save & Share Public",
+ shared:(tags:string)=>`บันทึก Public แล้ว · ${tags}`,
+ open:"เปิดลิงก์ Public",
+};
+export type PublicPhotoShareMessages=typeof publicPhotoShareTh;

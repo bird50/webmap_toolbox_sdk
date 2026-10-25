@@ -2,14 +2,15 @@
 import {useCallback,useEffect,useMemo,useRef,useState} from "react";
 import type {FeatureCollection} from "geojson";
 import type {StoredDataFile} from "../storage/data-file-storage.js";
-import {useToolbox} from "./context.js";
+import {useToolMessages,useToolbox} from "./context.js";
 export function useDataFiles(userId:string){
  const {storage}=useToolbox();const dataFileTransaction=storage.files;
  const [files,setFiles]=useState<StoredDataFile[]>([]);const [ready,setReady]=useState(false);const [error,setError]=useState("");const version=useRef(0);
+ const t=useToolMessages().dataFiles;const messages=useRef(t);messages.current=t;
  const refresh=useCallback(async(change?:Parameters<typeof dataFileTransaction>[1])=>{
   const current=++version.current;
   try{const saved=await dataFileTransaction(userId,change);if(current===version.current){setFiles(saved);setError("");setReady(true);}}
-  catch(error){if(current===version.current)setError(error instanceof Error?error.message:"เข้าถึงข้อมูลบนเครื่องไม่สำเร็จ");throw error;}
+  catch(error){if(current===version.current)setError(error instanceof Error?error.message:messages.current.accessFailed);throw error;}
  },[userId,dataFileTransaction]);
  useEffect(()=>{
   const revision=version;
