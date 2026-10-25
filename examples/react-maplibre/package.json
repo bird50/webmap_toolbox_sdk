@@ -8,9 +8,9 @@
   },
   "dependencies": {
     "@thaiwater/toolbox-sdk": "file:../..",
+    "maplibre-gl": "^6.15.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "maplibre-gl": "^6.15.0",
     "react-map-gl": "^8.0.4"
   },
   "devDependencies": {

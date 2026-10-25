@@ -1,6 +1,6 @@
 "use client";
 import type {ComponentType} from "react";
-import {ToolScope,useMapAdapter,useToolWorkspace} from "./context.js";
+import {MapScope,ToolScope,useToolWorkspace} from "./context.js";
 import {ToolBoundary} from "./boundary.js";
 import type {ToolComponentProps,ToolPlugin} from "./contracts.js";
 
@@ -17,10 +17,10 @@ export function ToolboxPanel() {
   if(!mounted.length&&!failures.length)return <p role="status" className="text-xs text-slate-500">{messages.noTools}</p>;
   return <>{failures}{mount(mounted,plugin=>plugin.Panel,messages.toolFailed)}</>;
 }
-/** Map Panel content: place inside the map, below MapLibreToolboxBridge or MapAdapterProvider. Renders nothing until a map is in scope. */
+/** Map Panel content: place inside the map (below MapLibreToolboxBridge for MapLibre renderers). Renders nothing until a map is in scope or attached. */
 export function ToolOverlays() {
   const {mounted,messages}=useToolWorkspace();
-  return useMapAdapter()?<>{mount(mounted,plugin=>plugin.Overlay,messages.toolFailed)}</>:null;
+  return <MapScope>{mount(mounted,plugin=>plugin.Overlay,messages.toolFailed)}</MapScope>;
 }
 /** Settings and modal UI of every mounted tool; place once, outside the three panels. */
 export function ToolDialogs() {

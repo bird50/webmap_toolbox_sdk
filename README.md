@@ -6,7 +6,7 @@ Reusable React/TypeScript Photo, Draw and Data Files tools with three independen
 
 Node 22.14+ and npm. Run `npm install`, `npm run lint`, `npm run build`, `npm test`. Build emits JavaScript, TypeScript declarations and CSS to `dist/` (ignored by Git). In another application: `npm install ../toolbox_sdk --install-links`. `npm pack` produces an installable archive for CI or an internal npm registry; publishing is not performed automatically.
 
-`npm test` runs node:test suites without a browser: `sdk.test.ts` (registry, storage, client, adapter), `core-data-files.test.ts` (CSV/GeoJSON/KML parsers; `@xmldom/xmldom` stands in for the browser `DOMParser`), `core-contracts.test.ts` (drawing geometry and contract, public photo query, share tags, Host API 1.0) and `ui-smoke.test.ts` (server-rendered markup of the tool panels, `ToolboxHost`, `LayerPanel`, `WorkspacePanels`), `registry-plugins.test.ts` (owned layers, batched updates, Tool API 2.0 checks) `maplibre-surface.test.ts` (GeoJSON surface against an in-memory MapLibre stand-in, pointer events, style swaps), `workspace.test.ts` (map slot, tool state, plugin layer registration) and `runtime-dom.test.ts` (provider, panels, overlays and dialogs rendered with react-dom in happy-dom). Hooks, effects and map overlays are not exercised; check them with the host application's manual regression checklist.
+`npm test` runs node:test suites without a browser: `sdk.test.ts` (registry, storage, client, adapter), `core-data-files.test.ts` (CSV/GeoJSON/KML parsers; `@xmldom/xmldom` stands in for the browser `DOMParser`), `core-contracts.test.ts` (drawing geometry and contract, public photo query, share tags, Host API 1.0) and `ui-smoke.test.ts` (server-rendered markup of the tool panels, `ToolboxHost`, `LayerPanel`, `WorkspacePanels`), `registry-plugins.test.ts` (owned layers, batched updates, Tool API 2.0 checks) `maplibre-surface.test.ts` (GeoJSON surface against an in-memory MapLibre stand-in, pointer events, style swaps), `workspace.test.ts` (map slot, tool state, plugin layer registration) `runtime-dom.test.ts` (provider, panels, overlays and dialogs rendered with react-dom in happy-dom) and `plugins-dom.test.ts` (built-in plugins against fake-indexeddb and a recording map adapter). Hooks, effects and map overlays are not exercised; check them with the host application's manual regression checklist.
 
 ```tsx
 import {createPublicClient} from '@thaiwater/toolbox-sdk';
@@ -63,6 +63,23 @@ These contracts land ahead of the plugin runtime; nothing mounts them yet and ev
 - `MapAdapterProvider` and `MapLibreToolboxBridge` attach their adapter to the surrounding provider automatically; `ToolOverlays` renders nothing until a map is in scope.
 - `messages` overrides runtime text (`thMessages` is the default). Keep `plugins`, `registry` and `messages` stable and remount the provider (`key={user.id}`) when the identity changes.
 
+## Built-in tool plugins (0.4.0)
+
+| Factory | Entry | Layers (owner key → default ID) | Requires |
+| --- | --- | --- | --- |
+| `dataFilesTool()` | `/react` | `files` → `my-data-files` | `map.geojson` |
+| `drawTool()` | `/react` | `mine` → `my-drawing`, `public` → `public-drawing` | `map.viewport`, `map.project`, `map.events` |
+| `photoTool()` | `/maplibre` | `mine` → `my-photos`, `public` → `public-photos` | `map.viewport`, `map.events` (+ react-map-gl) |
+| `navigationTool({home})` | `/react` | none | `map.navigate` |
+
+Each factory takes `id`, `title`, `accessLevel` and per-layer overrides (`layer`, `mine`, `shared`): any `LayerDefinition` field, or `false` to drop that layer. Defaults keep the 0.1.x IDs, colours and the deprecated `photoDataKey`/`drawingDataKey`/`toolboxId`, so existing hosts and saved browser data keep working. `createPhotoTool(Overlay, requires, options)` builds the photo tool with another engine's renderer.
+
+- Plugins may declare a headless `Controller` (mounted by the provider for the tool's lifetime) for loading and timers shared by its views: Data Files and Photo use it for browser storage, refresh and object URLs.
+- `useToolDialog(name)` opens a tool dialog through one workspace-wide slot, so opening any tool dialog closes the others; `returnFocus` is the element that opened it. `ToolPlugin.layerSettings` maps owner keys to dialog names and `useLayerSettings(layerId)` lets a host Layer Panel show a settings button for tool layers (Data Files → `files`, Public Photos → `public`).
+- `useDrawingToolbar()` exposes the drawing toolbar state to the host, e.g. to collapse panels on narrow screens.
+- `ToolOverlays` passes the attached map to overlays when it is not below a `MapAdapterProvider`; MapLibre renderers (Photo) still need to sit inside `MapLibreToolboxBridge`.
+- Tool layers are filtered by the registry's access level like any layer: a `PUBLIC` registry hides the `MEMBER` "My …" layers even when the tool is available.
+
 ## Storage and service
 
 My Photos, My Drawing and Data Files stay in IndexedDB. Database names contain appId/tool/schema version; records are scoped to userId. Photo retention is 15 days from add; drawing retention is 15 days from explicit save. Reads do not extend expiry. `createBrowserStorage(appId, legacyNames)` preserves an existing host's databases without uploading or silently migrating them. Keep runtime instances stable, and remount a workspace on identity changes.
@@ -77,7 +94,7 @@ Third-party URLs require appropriate gateway CORS/cookie handling. Prefer same-o
 
 ```bash
 cd examples/react-maplibre
-npm install --install-links
+npm install ../.. --install-links
 npm run build
 npm run dev
 ```
@@ -86,6 +103,6 @@ Open http://localhost:4174. The map uses a blank background so it needs no tile 
 
 ## Compatibility and release discipline
 
-Package version: 0.3.0; host contract: 1.0 (stable) and Tool API 2.0 (preview, runtime available); storage schema: v1; service HTTP contract remains unchanged. Treat each as a separate version. Change contracts with tests and a migration note. `tests/sdk.test.ts` exercises app/user isolation, expiry, blob persistence, layer synchronization, event cleanup and endpoint configuration. Do not load unreviewed toolbox JavaScript from arbitrary URLs.
+Package version: 0.4.0; host contract: 1.0 (stable) and Tool API 2.0 (preview: runtime and built-in tool plugins); storage schema: v1; service HTTP contract remains unchanged. Treat each as a separate version. Change contracts with tests and a migration note. `tests/sdk.test.ts` exercises app/user isolation, expiry, blob persistence, layer synchronization, event cleanup and endpoint configuration. Do not load unreviewed toolbox JavaScript from arbitrary URLs.
 
 Layer ordering controls GeoJSON MapLibre layers within their rendering surface. Photo markers and the SVG drawing overlay retain separate surfaces; ordering these across surfaces requires a host-specific compositing policy.

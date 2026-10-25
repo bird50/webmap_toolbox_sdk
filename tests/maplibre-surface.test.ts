@@ -82,6 +82,14 @@ test('order puts the first id on top without touching host layers',()=>{
  surface.set('c',data,{kind:'circle',color:'#000',opacity:1});surface.order(['c','a','b']);
  assert.deepEqual(fake.layers(),['host-background','registry-b','registry-a','registry-c']);
 });
+test('styledata with nothing missing and repeated order() calls never move layers (moveLayer re-fires styledata)',()=>{
+ const fake=fakeMap(),surface=createMapLibreGeoJSONSurface(()=>fake.map);let moves=0;
+ const move=fake.map.moveLayer.bind(fake.map);(fake.map as unknown as {moveLayer:(id:string)=>void}).moveLayer=id=>{moves++;move(id);};
+ surface.set('a',data,{kind:'fill',color:'#000',opacity:1});surface.order(['a']);
+ const settled=moves;
+ for(let i=0;i<5;i++){fake.fire('styledata');surface.order(['a']);surface.set('a',data,{kind:'fill',color:'#000',opacity:1});}
+ assert.equal(moves,settled);
+});
 test('a basemap swap re-adds layers with their state once the new style has loaded',()=>{
  const fake=fakeMap(),surface=createMapLibreGeoJSONSurface(()=>fake.map);
  surface.set('a',data,{kind:'fill',color:'#000',opacity:1});surface.set('b',data,{kind:'line',color:'#000',opacity:1});

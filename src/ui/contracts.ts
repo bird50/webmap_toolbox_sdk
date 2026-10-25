@@ -62,6 +62,10 @@ export interface ToolPlugin {
   Overlay?:ComponentType<ToolComponentProps>;
   /** Rendered once, outside the panels, for settings and modal UI. */
   Dialogs?:ComponentType<ToolComponentProps>;
+  /** Headless; mounted by ToolboxProvider for as long as the tool is mounted. Owns loading, timers and other effects the views share. */
+  Controller?:ComponentType<ToolComponentProps>;
+  /** Owner key of a tool layer → name of the dialog that configures it, so a host Layer Panel can offer a settings button. */
+  layerSettings?:Readonly<Record<string,string>>;
 }
 export type ToolEnvironment = {apiVersion:typeof TOOL_API_VERSION;accessLevel:AccessLevel;capabilities:readonly WebmapCapability[]};
 export function pluginAvailable(plugin:Pick<ToolPlugin,"apiVersion"|"accessLevel"|"requires">,environment:ToolEnvironment) {

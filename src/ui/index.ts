@@ -19,3 +19,8 @@ export * from './tools/PhotoTool.js';
 export * from './tools/DrawTool.js';
 export * from './tools/DataFilesTool.js';
 export * from './tools/NavigationTool.js';
+export * from './plugins/shared.js';
+export * from './plugins/data-files.js';
+export * from './plugins/draw.js';
+export * from './plugins/navigation.js';
+export * from './plugins/photo.js';
