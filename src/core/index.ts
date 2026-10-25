@@ -1,6 +1,7 @@
 export * from './layers.js';
 export * from './map.js';
 export * from './registry.js';
+export * from './workspace.js';
 export * from './client.js';
 export * from './drawing-contract.js';
 export * from './photo-share.js';
