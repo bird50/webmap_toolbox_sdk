@@ -1,0 +1,13 @@
+"use client";
+import {Camera,Settings} from "lucide-react";
+import {Button} from "../primitives/button.js";
+import {Switch} from "../primitives/switch.js";
+import type {PhotoServices} from "../services.js";
+export function PhotoTool({onMyPhotoSettings,myPhotoSettingsOpen,count,layerVisible,onLayerVisible,publicVisible,onPublicVisible,publicStatus,onPublicSettings,publicSettingsOpen,filterCount}:PhotoServices){
+return <section aria-labelledby="photo-tool-title" className="overflow-hidden rounded-xl border border-slate-200">
+        <h3 id="photo-tool-title" className="flex items-center gap-2 border-b border-slate-100 p-3 text-sm font-semibold"><Camera className="size-4 text-teal-700"/>Photo</h3>
+        <div className="flex items-center justify-between gap-2 p-3"><label htmlFor="my-photos-layer" className="text-xs font-semibold">Layer My Photos <span className="font-normal text-slate-500">({count})</span></label><Button id="toolbox-my-photos-settings" variant="ghost" size="icon" className="size-7 shrink-0" title="จัดการ My Photos" aria-label="ตั้งค่าชั้นข้อมูล My Photos" aria-haspopup="dialog" aria-expanded={myPhotoSettingsOpen} onClick={onMyPhotoSettings}><Settings/></Button><Switch id="my-photos-layer" checked={layerVisible} onCheckedChange={onLayerVisible}/></div>
+        <p className="px-3 pb-3 text-[10px] leading-5 text-slate-500">เก็บรูปบนเบราว์เซอร์นี้ 15 วันนับจากวันที่เพิ่ม ไม่อัปโหลดจนกว่าจะเลือกแชร์ Public</p>
+        <div className="border-t border-slate-100 p-3"><div className="flex items-center justify-between gap-2"><label htmlFor="public-photos-layer" className="text-xs font-semibold">Layer Public Photos <span className="font-normal text-slate-500">{publicVisible?`(${publicStatus.count})`:""}</span></label><Button id="toolbox-public-photos-settings" variant="ghost" size="icon" className="size-7 shrink-0 text-sky-600" aria-label="ตั้งค่า Public Photos" aria-haspopup="dialog" aria-expanded={publicSettingsOpen} onClick={event=>onPublicSettings(event.currentTarget)}><Settings/></Button><Switch id="public-photos-layer" checked={publicVisible} onCheckedChange={onPublicVisible}/></div><p className="mt-2 text-[10px] leading-5 text-slate-500">ภาพที่แชร์สาธารณะในพื้นที่แผนที่ปัจจุบัน{filterCount>0&&` · ใช้เงื่อนไขค้นหา ${filterCount} รายการ`}</p>{publicVisible&&<p role={publicStatus.error?"alert":"status"} className={`mt-1 text-[11px] leading-5 ${publicStatus.error?"text-amber-700":"text-slate-500"}`}>{publicStatus.loading?"กำลังโหลด Public Photos…":publicStatus.error|| (publicStatus.hasMore?"มีภาพเพิ่มเติม กรุณาซูมเข้าเพื่อดูครบ":!publicStatus.count?"ไม่พบภาพ Public ในพื้นที่นี้":"")}</p>}</div>
+      </section>;
+}

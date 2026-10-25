@@ -1,0 +1,7 @@
+type PublicPhotoStatus={count:number;loading:boolean;error:string;hasMore:boolean};
+import type {LayerDefinition} from "../core/layers.js";
+export type WorkspaceToolServices={dataFilesCount:number;dataFilesOpen:boolean;onDataFilesSettings:(trigger:HTMLButtonElement)=>void;dataFilesVisible:boolean;onDataFilesVisible:(visible:boolean)=>void;onMyPhotoSettings:()=>void;myPhotoSettingsOpen:boolean;onClose:()=>void;hidden:boolean;count:number;layerVisible:boolean;onLayerVisible:(visible:boolean)=>void;publicVisible:boolean;onPublicVisible:(visible:boolean)=>void;publicStatus:PublicPhotoStatus;onPublicSettings:(trigger:HTMLButtonElement)=>void;publicSettingsOpen:boolean;filterCount:number;drawingLayers:LayerDefinition[];visible:Record<string,boolean>;onDrawingVisible:(id:string,visible:boolean)=>void;drawingToolbarOpen:boolean;onDrawingToolbarChange:(open:boolean)=>void;drawingCount:number};
+
+export type PhotoServices=Pick<WorkspaceToolServices,"onMyPhotoSettings"|"myPhotoSettingsOpen"|"count"|"layerVisible"|"onLayerVisible"|"publicVisible"|"onPublicVisible"|"publicStatus"|"onPublicSettings"|"publicSettingsOpen"|"filterCount">;
+export type DrawingServices=Pick<WorkspaceToolServices,"drawingLayers"|"visible"|"onDrawingVisible"|"drawingToolbarOpen"|"onDrawingToolbarChange"|"drawingCount">;
+export type DataFileServices=Pick<WorkspaceToolServices,"dataFilesCount"|"dataFilesOpen"|"onDataFilesSettings"|"dataFilesVisible"|"onDataFilesVisible">;

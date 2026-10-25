@@ -1,0 +1,89 @@
+import {z} from "zod";
+import type {FeatureCollection,Geometry,Feature} from "geojson";
+
+export const DATA_RETENTION_MS=15*24*60*60*1000;
+export const MAX_DATA_BYTES=5*1024*1024;
+const position=z.array(z.number().finite()).min(2).max(3).refine(p=>Math.abs(p[0])<=180&&Math.abs(p[1])<=90,"พิกัดต้องเป็น WGS84 (longitude, latitude)");
+const line=z.array(position).min(2);
+const ring=z.array(position).min(4).refine(p=>JSON.stringify(p[0])===JSON.stringify(p[p.length-1]),"Polygon ต้องปิดวง");
+const polygon=z.array(ring).min(1);
+const geometry=z.discriminatedUnion("type",[
+ z.object({type:z.literal("Point"),coordinates:position}),z.object({type:z.literal("MultiPoint"),coordinates:z.array(position).min(1)}),
+ z.object({type:z.literal("LineString"),coordinates:line}),z.object({type:z.literal("MultiLineString"),coordinates:z.array(line).min(1)}),
+ z.object({type:z.literal("Polygon"),coordinates:polygon}),z.object({type:z.literal("MultiPolygon"),coordinates:z.array(polygon).min(1)})
+]);
+const feature=z.object({type:z.literal("Feature"),geometry,properties:z.record(z.string(),z.union([z.string().max(2000),z.number().finite(),z.boolean(),z.null()])).nullable()});
+export function validateData(input:unknown):FeatureCollection {
+ if(input&&typeof input==="object"&&"crs" in input&&input.crs)throw new Error("กรุณาแปลงเป็น GeoJSON WGS84 (EPSG:4326) โดยไม่มี crs ก่อนนำเข้า");
+ const parsed=z.object({type:z.literal("FeatureCollection"),features:z.array(feature).min(1).max(5000)}).safeParse(input);
+ if(!parsed.success)throw new Error("ข้อมูลไม่ถูกต้อง: รองรับ Point/Line/Polygon และ Multi ใน WGS84 ไม่เกิน 5,000 รายการ พร้อม properties แบบข้อความ/ตัวเลข/boolean เท่านั้น");
+ let points=0;
+ const count=(coordinates:unknown):void=>{if(!Array.isArray(coordinates))return;if(typeof coordinates[0]==="number")points++;else coordinates.forEach(count);};
+ parsed.data.features.forEach(f=>count(f.geometry.coordinates));
+ if(points>50000)throw new Error("เกิน 50,000 จุดพิกัดต่อไฟล์ กรุณาลดขนาดข้อมูล");
+ return parsed.data as FeatureCollection;
+}
+
+/** RFC-style quoted CSV fields, including commas, escaped quotes and newlines. */
+export function csvData(text:string):FeatureCollection {
+ const rows:string[][]=[];let row:string[]=[],field="",quoted=false,closed=false;
+ for(let i=0;i<text.length;i++){
+  const c=text[i];
+  if(quoted){if(c==='"'){if(text[i+1]==='"'){field+='"';i++;}else{quoted=false;closed=true;}}else field+=c;continue;}
+  if(c==='"'){if(field||closed)throw new Error("รูปแบบเครื่องหมายคำพูดใน CSV ไม่ถูกต้อง");quoted=true;}
+  else if(c===','||c==='\n'||c==='\r'){row.push(field);field="";closed=false;if(c!==','){if(row.some(value=>value.trim()))rows.push(row);row=[];if(c==='\r'&&text[i+1]==='\n')i++;}}
+  else {if(closed)throw new Error("รูปแบบ CSV ไม่ถูกต้อง");field+=c;}
+  if(rows.length>5001)throw new Error("CSV เกิน 5,000 รายการ");
+ }
+ if(quoted)throw new Error("CSV มีเครื่องหมายคำพูดที่ยังไม่ปิด");
+ row.push(field);if(row.some(value=>value.trim()))rows.push(row);
+ const header=rows.shift()?.map(value=>value.trim().toLowerCase())??[];
+ if(new Set(header).size!==header.length||header.some(key=>!key||["__proto__","constructor","prototype"].includes(key)))throw new Error("ชื่อคอลัมน์ CSV ซ้ำหรือไม่ถูกต้อง");
+ const lat=header.findIndex(key=>["latitude","lat"].includes(key));const lon=header.findIndex(key=>["longitude","lon","lng"].includes(key));
+ if(lat<0||lon<0)throw new Error("CSV ต้องมีคอลัมน์ latitude/lat และ longitude/lon/lng (องศา WGS84)");
+ return validateData({type:"FeatureCollection",features:rows.map((values,index)=>{
+  if(values.length!==header.length||!values[lat].trim()||!values[lon].trim())throw new Error(`CSV แถว ${index+2}: จำนวนคอลัมน์หรือพิกัดไม่ถูกต้อง`);
+  return {type:"Feature",geometry:{type:"Point",coordinates:[Number(values[lon]),Number(values[lat])]},properties:Object.fromEntries(header.map((key,i)=>[key,values[i]]))};
+ })});
+}
+
+export function kmlData(text:string):FeatureCollection {
+ if(/<!DOCTYPE|<!ENTITY/i.test(text))throw new Error("ไม่รองรับ DTD/Entity ใน KML");
+ const document=new DOMParser().parseFromString(text,"application/xml");
+ if(document.getElementsByTagName("parsererror").length||document.documentElement.localName!=="kml")throw new Error("ไฟล์ KML ไม่ถูกต้อง");
+ const nodes=(root:Element|Document,name:string)=>Array.from(root.getElementsByTagNameNS("*",name));
+ const coordinates=(element:Element)=>{
+  const raw=nodes(element,"coordinates")[0]?.textContent?.trim();if(!raw)throw new Error("KML ไม่มีพิกัด");
+  return raw.split(/\s+/).map(value=>{const parts=value.split(',');if(parts.some(part=>!part.trim()))throw new Error("KML มีพิกัดว่าง");return parts.map(Number);});
+ };
+ const features:Feature[]=[];
+ for(const place of nodes(document,"Placemark")){
+  const properties={name:nodes(place,"name")[0]?.textContent??"",description:nodes(place,"description")[0]?.textContent??""};
+  let found=false;
+  for(const element of Array.from(place.getElementsByTagNameNS("*","*"))){
+   let shape:Geometry|undefined;
+   if(element.localName==="Point"){const points=coordinates(element);if(points.length!==1)throw new Error("KML Point ต้องมีพิกัดเดียว");shape={type:"Point",coordinates:points[0]};}
+   if(element.localName==="LineString")shape={type:"LineString",coordinates:coordinates(element)};
+   if(element.localName==="Polygon"){
+    const outer=nodes(element,"outerBoundaryIs")[0];if(!outer)throw new Error("KML Polygon ไม่มีขอบนอก");
+    shape={type:"Polygon",coordinates:[coordinates(outer),...nodes(element,"innerBoundaryIs").map(coordinates)]};
+   }
+   if(shape){found=true;features.push({type:"Feature",properties,geometry:shape});}
+  }
+  if(!found)throw new Error("KML รองรับเฉพาะ Point, LineString, Polygon และ MultiGeometry ที่มีชนิดเหล่านี้");
+ }
+ return validateData({type:"FeatureCollection",features});
+}
+export async function parseDataFile(file:File):Promise<FeatureCollection>{
+ if(file.size>MAX_DATA_BYTES)throw new Error("ไฟล์ต้องไม่เกิน 5 MB");
+ const text=(await file.text()).replace(/^\uFEFF/,"");
+ const extension=file.name.split('.').pop()?.toLowerCase();
+ if(extension==="csv")return csvData(text);
+ if(extension==="kml")return kmlData(text);
+ if(extension==="geojson"||extension==="json"){
+  let input:unknown;try{input=JSON.parse(text);}catch{throw new Error("JSON ไม่ถูกต้อง");}
+  if(input&&typeof input==="object"&&"type" in input&&input.type==="Feature")input={type:"FeatureCollection",features:[input]};
+  return validateData(input);
+ }
+ throw new Error("รองรับเฉพาะ .kml, .geojson, .json และ .csv");
+}
