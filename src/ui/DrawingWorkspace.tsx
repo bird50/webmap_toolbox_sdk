@@ -1,7 +1,10 @@
 "use client";
 
+import {drawingWorkspaceTh} from "./messages/drawingWorkspace.js";
 import {useEffect,useRef,useState,type PointerEvent as ReactPointerEvent} from "react";
-import {useToolboxMap as useMap,useToolbox,useToolMessages} from "./context.js";
+import {createDrawingStorage} from "../storage/drawing-storage.js";
+import {storageName} from "../storage/names.js";
+import {useToolboxMap as useMap,useToolStorage,useToolText} from "./context.js";
 import {DrawingShareControls} from "./DrawingShareControls.js";
 import {usePublicDrawings} from "./usePublicDrawings.js";
 import {DrawingToolbar} from "./DrawingToolbar.js";
@@ -13,16 +16,16 @@ type Gesture={start:Coordinate;original?:Drawing;resize?:boolean;points:Coordina
 /** `mine` is the editable browser layer, `shared` the read-only public layer; either may be omitted. */
 export function DrawingWorkspace({open,onClose,mine,shared,visible,opacity,onEnsureVisible,onCount,userId}:{open:boolean;onClose:()=>void;mine?:LayerDefinition;shared?:LayerDefinition;visible:Record<string,boolean>;opacity:Record<string,number>;onEnsureVisible:()=>void;onCount:(count:number)=>void;userId:string}) {
   const {current:map}=useMap();
-  const runtime=useToolbox();
-  const t=useToolMessages().drawingWorkspace;
+  const drawingStore=useToolStorage("drawings",appId=>createDrawingStorage(storageName(appId,"draw")));
+  const t=useToolText("drawingWorkspace",drawingWorkspaceTh);
   const tRef=useRef(t);tRef.current=t;
   const svgRef=useRef<SVGSVGElement>(null);
   const [view,setView]=useState({width:1,height:1,zoom:0});
   const [drawings,setDrawings]=useState<Drawing[]>([]);
   const [storageReady,setStorageReady]=useState(false);
   const [storageMessage,setStorageMessage]=useState(t.storageLoading);
-  useEffect(()=>{let cancelled=false;runtime.storage.drawings(userId).then(result=>{if(!cancelled){setDrawings(result.drawings);setStorageReady(true);setStorageMessage(result.expiresAt?tRef.current.storedUntil(new Date(result.expiresAt).toLocaleDateString("th-TH")):tRef.current.storageEmpty);}}).catch(()=>{if(!cancelled){setStorageReady(true);setStorageMessage(tRef.current.storageReadFailed);}});return ()=>{cancelled=true;};},[userId,runtime.storage]);
-  async function saveLocal(){try{const result=await runtime.storage.drawings(userId,drawings);setStorageMessage(tRef.current.savedUntil(new Date(result.expiresAt!).toLocaleDateString("th-TH")));}catch{setStorageMessage(tRef.current.saveFailed);}}
+  useEffect(()=>{let cancelled=false;drawingStore(userId).then(result=>{if(!cancelled){setDrawings(result.drawings);setStorageReady(true);setStorageMessage(result.expiresAt?tRef.current.storedUntil(new Date(result.expiresAt).toLocaleDateString("th-TH")):tRef.current.storageEmpty);}}).catch(()=>{if(!cancelled){setStorageReady(true);setStorageMessage(tRef.current.storageReadFailed);}});return ()=>{cancelled=true;};},[userId,drawingStore]);
+  async function saveLocal(){try{const result=await drawingStore(userId,drawings);setStorageMessage(tRef.current.savedUntil(new Date(result.expiresAt!).toLocaleDateString("th-TH")));}catch{setStorageMessage(tRef.current.saveFailed);}}
   const publicLayer=shared;
   const publicVisible=!!publicLayer&&!!visible[publicLayer.id];
   const publicData=usePublicDrawings(publicLayer,publicVisible);

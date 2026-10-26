@@ -55,6 +55,5 @@ async function savePhotos(userId:string,photos:GeotaggedPhoto[],now=Date.now()):
 return {loadPhotos,savePhotos};
 }
 
-export function formatPhotoExpiry(timestamp:number) {
-  return new Intl.DateTimeFormat("th-TH",{dateStyle:"medium",timeStyle:"short",timeZone:"Asia/Bangkok"}).format(timestamp);
-}
+/** @deprecated use formatExpiry from the storage entry. */
+export {formatExpiry as formatPhotoExpiry} from "./expiry.js";

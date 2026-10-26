@@ -7,10 +7,12 @@ import {createLayerRegistry,type LayerRegistry} from '../core/registry.js';
 import {createToolWorkspaceStore,registerPluginLayers,type StateUpdate,type ToolUser,type ToolWorkspaceStore} from '../core/workspace.js';
 import type {BrowserStorage} from '../storage/index.js';
 import {TOOL_API_VERSION,definePlugins,mapCapabilities,pluginAvailable,type ToolPlugin,type WebmapCapability} from './contracts.js';
-import {mergeMessages,thMessages,type ToolboxMessages,type ToolboxMessagesOverride} from './messages.js';
+import type {ToolboxMessagesOverride} from './messages.js';
+import {runtimeTh,type RuntimeMessages} from './messages/runtime.js';
 import {ToolBoundary} from './boundary.js';
-export type ToolboxRuntime={appId:string;storage:BrowserStorage;client:PublicClient};
-type Workspace={store:ToolWorkspaceStore;registry:LayerRegistry;user:ToolUser;messages:ToolboxMessages;plugins:readonly ToolPlugin[];mounted:readonly ToolPlugin[];failed:Readonly<Record<string,string>>};
+/** `storage` may hold only the stores you configure; a tool falls back to its own default database for this appId. */
+export type ToolboxRuntime={appId:string;storage?:Partial<BrowserStorage>;client:PublicClient};
+type Workspace={store:ToolWorkspaceStore;registry:LayerRegistry;user:ToolUser;overrides:ToolboxMessagesOverride;runtimeText:RuntimeMessages;plugins:readonly ToolPlugin[];mounted:readonly ToolPlugin[];failed:Readonly<Record<string,string>>};
 const Context=createContext<ToolboxRuntime|null>(null);
 const MapContext=createContext<MapAdapter|null>(null);
 const WorkspaceContext=createContext<Workspace|null>(null);
@@ -18,6 +20,8 @@ const ToolContext=createContext<string|null>(null);
 const guest:ToolUser={id:'guest',accessLevel:'PUBLIC'};
 const noPlugins:readonly ToolPlugin[]=[];
 const noCapabilities:readonly WebmapCapability[]=[];
+const noOverrides:ToolboxMessagesOverride={};
+const pickRuntime=(messages?:ToolboxMessagesOverride)=>Object.fromEntries(Object.entries(messages??{}).filter(([key,value])=>key in runtimeTh&&value!==undefined)) as Partial<RuntimeMessages>;
 
 /**
  * `runtime` alone keeps the Host API 1.0 behaviour. Tool API 2.0 adds `plugins`, the shared `registry`
@@ -42,8 +46,8 @@ export function ToolboxProvider({runtime,children,plugins=noPlugins,registry,use
   setFailed(current=>JSON.stringify(current)===JSON.stringify(result.failed)?current:result.failed);
   return ()=>result.dispose();
  },[layers,availableKey,toolLayers]);
- const workspace=useMemo<Workspace>(()=>({store,registry:layers,user:{id:user.id,accessLevel:user.accessLevel},messages:mergeMessages(messages),plugins:checked,mounted:available.filter(plugin=>!failed[plugin.id]),failed}),[store,layers,user.id,user.accessLevel,messages,checked,available,failed]);
- const controllers=workspace.mounted.flatMap(({id,title,Controller})=>Controller?[<ToolScope key={id} toolId={id}><ToolBoundary message={workspace.messages.toolFailed(title)}><Controller toolId={id}/></ToolBoundary></ToolScope>]:[]);
+ const workspace=useMemo<Workspace>(()=>({store,registry:layers,user:{id:user.id,accessLevel:user.accessLevel},overrides:messages??noOverrides,runtimeText:{...runtimeTh,...pickRuntime(messages)},plugins:checked,mounted:available.filter(plugin=>!failed[plugin.id]),failed}),[store,layers,user.id,user.accessLevel,messages,checked,available,failed]);
+ const controllers=workspace.mounted.flatMap(({id,title,Controller})=>Controller?[<ToolScope key={id} toolId={id}><ToolBoundary message={workspace.runtimeText.toolFailed(title)}><Controller toolId={id}/></ToolBoundary></ToolScope>]:[]);
  return <Context.Provider value={runtime}><WorkspaceContext.Provider value={workspace}>{controllers}{children}</WorkspaceContext.Provider></Context.Provider>;
 }
 /** Supplies the map to overlays below it and attaches it to the surrounding ToolboxProvider. */
@@ -73,8 +77,28 @@ export function useMapAdapter():MapAdapter|undefined{
 export function useToolWorkspace(){const value=useContext(WorkspaceContext);if(!value)throw new Error('ToolboxProvider is required');return value;}
 export function useToolId(){const value=useContext(ToolContext);if(!value)throw new Error('ToolScope is required');return value;}
 export function useToolUser(){return useToolWorkspace().user;}
-/** Works outside a provider too (default Thai text), so components stay usable on their own. */
-export function useToolMessages():ToolboxMessages{return useContext(WorkspaceContext)?.messages??thMessages;}
+/** Raw `messages` passed to the provider ({} outside one). */
+export function useMessageOverrides():ToolboxMessagesOverride{return useContext(WorkspaceContext)?.overrides??noOverrides;}
+/** One component group's text: its Thai defaults merged with the host's override for that group. Works outside a provider. */
+export function useToolText<T extends object>(group:string,defaults:T):T{
+ const override=(useContext(WorkspaceContext)?.overrides as Record<string,unknown>|undefined)?.[group];
+ return useMemo(()=>override&&typeof override==="object"?{...defaults,...override as Partial<T>}:defaults,[override,defaults]);
+}
+/** Provider/ToolboxPanel text (noTools, toolFailed, layersFailed). */
+export function useRuntimeText():RuntimeMessages{return useContext(WorkspaceContext)?.runtimeText??runtimeTh;}
+const fallbackStores=new WeakMap<ToolboxRuntime,Map<string,unknown>>();
+/**
+ * A tool's browser store: the runtime's configured one, or a default database named for this appId and tool
+ * (same names as createBrowserStorage), created once per runtime.
+ */
+export function useToolStorage<K extends keyof BrowserStorage>(kind:K,create:(appId:string)=>BrowserStorage[K]):BrowserStorage[K]{
+ const runtime=useToolbox();
+ const configured=runtime.storage?.[kind];
+ if(configured)return configured as BrowserStorage[K];
+ let stores=fallbackStores.get(runtime);if(!stores){stores=new Map();fallbackStores.set(runtime,stores);}
+ if(!stores.has(kind))stores.set(kind,create(runtime.appId));
+ return stores.get(kind) as BrowserStorage[K];
+}
 /** Registry snapshot shared by the Layer Panel, Toolbox Panel and map overlays. */
 export function useLayers(){
  const {registry}=useToolWorkspace();

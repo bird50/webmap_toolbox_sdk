@@ -1,12 +1,13 @@
 "use client";
-import {useToolbox,useToolMessages} from "./context.js";
+import {drawingShareTh} from "./messages/drawingShare.js";
+import {useToolbox,useToolText} from "./context.js";
 import {useState} from "react";
 import {Button} from "./primitives/button.js";
 import {Input} from "./primitives/input.js";
 import {drawingShareSchema} from "../core/drawing-contract.js";
 import type {Drawing} from "../core/drawing.js";
 export function DrawingShareControls({drawings,selected,ready,onSave,storageMessage}:{drawings:Drawing[];selected?:Drawing;ready:boolean;onSave:()=>Promise<void>;storageMessage:string}){
- const {client}=useToolbox();const t=useToolMessages().drawingShare;
+ const {client}=useToolbox();const t=useToolText("drawingShare",drawingShareTh);
  const [name,setName]=useState("");const [busy,setBusy]=useState(false);const [message,setMessage]=useState("");const [error,setError]=useState(false);
  return <section className="space-y-2 border-t pt-3" aria-label={t.section}>
  <Button size="sm" className="w-full" disabled={!ready||busy} onClick={async()=>{setBusy(true);try{await onSave();}finally{setBusy(false);}}}>{t.save}</Button>

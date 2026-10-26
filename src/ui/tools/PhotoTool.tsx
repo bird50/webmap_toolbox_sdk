@@ -1,12 +1,13 @@
 "use client";
+import {photoToolTh} from "../messages/photoTool.js";
 import {Camera,Settings} from "lucide-react";
 import {Button} from "../primitives/button.js";
 import {Switch} from "../primitives/switch.js";
-import {useToolMessages} from "../context.js";
+import {useToolText} from "../context.js";
 export type PublicPhotoToolStatus={count:number;loading:boolean;error:string;hasMore:boolean};
 export type PhotoToolProps={onMyPhotoSettings:()=>void;myPhotoSettingsOpen:boolean;count:number;layerVisible:boolean;onLayerVisible:(visible:boolean)=>void;publicVisible:boolean;onPublicVisible:(visible:boolean)=>void;publicStatus:PublicPhotoToolStatus;onPublicSettings:(trigger:HTMLButtonElement)=>void;publicSettingsOpen:boolean;filterCount:number};
 export function PhotoTool({onMyPhotoSettings,myPhotoSettingsOpen,count,layerVisible,onLayerVisible,publicVisible,onPublicVisible,publicStatus,onPublicSettings,publicSettingsOpen,filterCount}:PhotoToolProps){
-const t=useToolMessages().photoTool;
+const t=useToolText("photoTool",photoToolTh);
 return <section aria-labelledby="photo-tool-title" className="overflow-hidden rounded-xl border border-[color:var(--sdk-border,#e2e8f0)]">
         <h3 id="photo-tool-title" className="flex items-center gap-2 border-b border-[color:var(--sdk-border-subtle,#f1f5f9)] p-3 text-sm font-semibold"><Camera className="size-4 text-[color:var(--sdk-primary,#0f766e)]"/>{t.title}</h3>
         <div className="flex items-center justify-between gap-2 p-3"><label htmlFor="my-photos-layer" className="text-xs font-semibold">{t.myLayer} <span className="font-normal text-[color:var(--sdk-muted,#64748b)]">({count})</span></label><Button id="toolbox-my-photos-settings" variant="ghost" size="icon" className="size-7 shrink-0" title={t.myManage} aria-label={t.mySettings} aria-haspopup="dialog" aria-expanded={myPhotoSettingsOpen} onClick={onMyPhotoSettings}><Settings/></Button><Switch id="my-photos-layer" checked={layerVisible} onCheckedChange={onLayerVisible}/></div>

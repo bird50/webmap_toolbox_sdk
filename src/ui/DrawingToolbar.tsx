@@ -1,11 +1,12 @@
 "use client";
 
+import {drawingToolbarTh} from "./messages/drawingToolbar.js";
 import {MousePointer2,Hand,Pencil,Highlighter,Eraser,MapPin,Minus,Hexagon,RectangleHorizontal,Circle,MoveUpRight,Type,Square,MessageSquare,Tag,StickyNote,ListOrdered,List,Undo2,Redo2,Trash2,X,Check} from "lucide-react";
 import type {ReactNode} from "react";
 import {Button} from "./primitives/button.js";
 import {Input} from "./primitives/input.js";
 import {textTools,type Coordinate,type DrawTool,type DrawingStyle} from "../core/drawing.js";
-import {useToolMessages} from "./context.js";
+import {useToolText} from "./context.js";
 
 const groups=[
   {id:"basic",tools:[{id:"select",icon:MousePointer2},{id:"pan",icon:Hand},{id:"pen",icon:Pencil},{id:"highlighter",icon:Highlighter},{id:"eraser",icon:Eraser},{id:"point",icon:MapPin},{id:"line",icon:Minus},{id:"polygon",icon:Hexagon},{id:"rectangle",icon:RectangleHorizontal},{id:"circle",icon:Circle},{id:"arrow",icon:MoveUpRight}]},
@@ -15,7 +16,7 @@ const groups=[
 export function DrawingToolbar({tool,onTool,style,onStyle,text,onText,selected,selectedTool,selectedPoints,onDelete,onClose,onFinish,onCancel,canFinish,hasDraft,undo,redo,canUndo,canRedo,message,count,children}:{
   tool:DrawTool;onTool:(tool:DrawTool)=>void;style:DrawingStyle;onStyle:(style:DrawingStyle)=>void;text:string;onText:(text:string)=>void;selected:boolean;selectedTool?:DrawTool;selectedPoints?:Coordinate[];onDelete:()=>void;onClose:()=>void;onFinish:()=>void;onCancel:()=>void;canFinish:boolean;hasDraft:boolean;undo:()=>void;redo:()=>void;canUndo:boolean;canRedo:boolean;message:string;count:number;children?:ReactNode;
 }) {
-  const t=useToolMessages().drawingToolbar;
+  const t=useToolText("drawingToolbar",drawingToolbarTh);
   const editingTool=selectedTool??tool;
   const isText=textTools.includes(editingTool);
   const fieldClass="h-8 w-full rounded-md border border-input bg-white px-2 text-xs";

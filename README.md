@@ -38,11 +38,14 @@ Map, Layer and Toolbox are slots: the host decides placement, dimensions and vis
 | package root | Layer/map contracts, `createLayerRegistry`, workspace store, public client, drawing/photo-share/public-query contracts |
 | `/react` | `ToolboxProvider`, `ToolboxPanel`/`ToolOverlays`/`ToolDialogs`, hooks, built-in plugins, tool UI components, `thMessages`, `WorkspacePanels`/`LayerPanel` |
 | `/maplibre` | `createMapLibreAdapter`, `MapLibreToolboxBridge`, MapLibre GeoJSON surface, `RegistryLayers` |
-| `/storage` | Browser storage factories with app namespaces |
+| `/storage` | Browser storage factories with app namespaces, `storageName`, `formatExpiry` |
+| `/tools/photo`, `/tools/draw`, `/tools/data-files`, `/tools/navigation` | One tool each: plugin factory, its UI components, store factory and text defaults |
 | `/core/drawing`, `/core/data-files`, `/core/photo-gps` | Geometry, file parsers and EXIF helpers |
 | `/styles.css` | Utilities and tokens for hosts without Tailwind |
 
 Only these paths are public API; files under `dist/` are not importable individually.
+
+Import tools from their own entry when an app uses only some of them (`import {photoTool} from '@thaiwater/toolbox-sdk/tools/photo'`). A tool entry pulls in the shared runtime and its own files only — never another tool, the all-in-one message table or `createBrowserStorage` — and `tests/tool-boundaries.test.ts` enforces this, so each tool can later become its own package without code changes. `/react` still exports everything for existing apps.
 
 ## Map adapters
 
@@ -75,11 +78,13 @@ Inside a tool: `useToolState(key, initial)` (state shared by the tool's componen
 
 ## Text and theme
 
-All UI text comes from `thMessages`, grouped by component (`photoSettings`, `drawingToolbar`, `dataFilesTool`, …). Pass `ToolboxProvider messages={{dataFilesTool:{title:'Data files'}}}`: each group may be partial and is merged over the Thai defaults. Validation errors raised by core parsers and storage remain Thai and reach the UI as `Error.message`.
+All UI text comes from per-component groups (`photoSettings`, `drawingToolbar`, `dataFilesTool`, …); each tool entry exports its own Thai defaults and components read their group with `useToolText(group, defaults)`. `thMessages`/`useToolMessages()` in `/react` still give the full merged set. Pass `ToolboxProvider messages={{dataFilesTool:{title:'Data files'}}}`: each group may be partial and is merged over the Thai defaults. Validation errors raised by core parsers and storage remain Thai and reach the UI as `Error.message`.
 
 Colours are CSS variables with the previous defaults as fallbacks: `--sdk-primary`, `--sdk-primary-soft`, `--sdk-primary-strong`, `--sdk-ring`, `--sdk-muted`, `--sdk-muted-strong`, `--sdk-text-secondary`, `--sdk-border`, `--sdk-border-subtle`, `--sdk-surface-muted`, `--sdk-warning`, `--sdk-danger`, `--sdk-info` and a few soft variants. Placement and font: `--sdk-font`, `--sdk-settings-right`, `--sdk-settings-top`, `--sdk-drawing-right`, `--sdk-drawing-top`. CSS does not import Tailwind preflight; import `styles.css` in apps without Tailwind, or let a Tailwind host scan `src/ui` and `src/adapters`.
 
 ## Storage and service
+
+`runtime.storage` is optional and may be partial: a tool without a configured store opens its default database `storageName(appId, tool)` (`toolbox:<appId>:photo|draw|files:v1`, the same names `createBrowserStorage` uses), once per runtime. Pass explicit stores (or `createBrowserStorage(appId, legacyNames)`) to keep existing database names.
 
 My Photos, My Drawing and Data Files stay in IndexedDB. Database names contain appId/tool/schema version; records are scoped to userId. Photo retention is 15 days from add; drawing retention is 15 days from explicit save. Reads do not extend expiry. `createBrowserStorage(appId, legacyNames)` preserves an existing host's databases without uploading or silently migrating them.
 
@@ -100,4 +105,4 @@ MapLibre: http://localhost:4174 (the build copies MapLibre 6's worker next to th
 
 ## Compatibility
 
-Package 1.0.0; Tool API 2.0; storage schema v1; service HTTP contract unchanged. Treat each as a separate version and change contracts with tests and a migration note (see `CHANGELOG.md`). Do not load unreviewed toolbox JavaScript from arbitrary URLs.
+Package 1.1.0; Tool API 2.0; storage schema v1; service HTTP contract unchanged. Treat each as a separate version and change contracts with tests and a migration note (see `CHANGELOG.md`). Do not load unreviewed toolbox JavaScript from arbitrary URLs.

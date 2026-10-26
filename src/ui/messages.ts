@@ -14,16 +14,18 @@ import {dataFilesToolTh} from "./messages/dataFilesTool.js";
 import {dataFilesTh} from "./messages/dataFiles.js";
 import {navigationTh} from "./messages/navigation.js";
 import {layerPanelTh} from "./messages/layerPanel.js";
+import {runtimeTh} from "./messages/runtime.js";
+import {useMessageOverrides} from "./context.js";
+import {useMemo} from "react";
 
 /**
- * All user-facing UI text, grouped by component. `thMessages` is the default; hosts pass
+ * All user-facing UI text, grouped by component (each group lives in messages/<group>.ts next to nothing else, so a tool entry
+ * only pulls in its own text). `thMessages` is the default; hosts pass
  * `ToolboxProvider messages` with any subset (each group may itself be partial). Validation errors from
  * core parsers and storage stay Thai and reach the UI as `Error.message`.
  */
 export const thMessages={
- noTools:"ไม่มีเครื่องมือที่รองรับพื้นที่ปฏิบัติงานนี้",
- toolFailed:(title:string)=>`เปิดเครื่องมือ ${title} ไม่สำเร็จ กรุณาโหลดหน้าใหม่`,
- layersFailed:(title:string)=>`เพิ่มชั้นข้อมูลของเครื่องมือ ${title} ไม่สำเร็จ เนื่องจากรหัสชั้นข้อมูลซ้ำหรือไม่ถูกต้อง`,
+ ...runtimeTh,
  photoTool:photoToolTh,photoSettings:photoSettingsTh,publicPhotoSettings:publicPhotoSettingsTh,publicPhotoShare:publicPhotoShareTh,photoOverlay:photoOverlayTh,photoPlugin:photoPluginTh,
  drawingToolbar:drawingToolbarTh,drawingWorkspace:drawingWorkspaceTh,drawingShare:drawingShareTh,publicDrawings:publicDrawingsTh,drawTool:drawToolTh,
  dataFilesSettings:dataFilesSettingsTh,dataFilesTool:dataFilesToolTh,dataFiles:dataFilesTh,navigation:navigationTh,layerPanel:layerPanelTh,
@@ -40,3 +42,5 @@ export function mergeMessages(override?:ToolboxMessagesOverride):ToolboxMessages
  }
  return merged as ToolboxMessages;
 }
+/** The complete, merged text set. Tool components read only their own group through `useToolText`. */
+export function useToolMessages():ToolboxMessages{const overrides=useMessageOverrides();return useMemo(()=>mergeMessages(overrides),[overrides]);}

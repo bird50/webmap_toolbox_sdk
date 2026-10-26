@@ -1,6 +1,7 @@
 "use client";
+import {publicDrawingsTh} from "./messages/publicDrawings.js";
 import {useEffect,useRef,useState} from "react";
-import {useToolboxMap as useMap,useToolbox,useToolMessages} from "./context.js";
+import {useToolboxMap as useMap,useToolbox,useToolText} from "./context.js";
 import {photoViewportBbox} from "../core/public-photo-query.js";
 import {drawingSchema} from "../core/drawing-contract.js";
 import {z} from "zod";
@@ -9,7 +10,7 @@ const responseSchema=z.object({drawings:z.array(drawingSchema.safeExtend({shareN
 export function usePublicDrawings(layer:LayerDefinition|undefined,visible:boolean){
  const {current:map}=useMap();
  const runtime=useToolbox();
- const t=useToolMessages().publicDrawings;const tRef=useRef(t);tRef.current=t;
+ const t=useToolText("publicDrawings",publicDrawingsTh);const tRef=useRef(t);tRef.current=t;
  const [state,setState]=useState<{drawings:z.infer<typeof responseSchema>["drawings"];message:string;error:boolean}>({drawings:[],message:"",error:false});
  useEffect(()=>{
  if(!map||!visible||!layer)return;

@@ -1,6 +1,7 @@
 "use client";
 
-import {useToolbox,useToolMessages} from "./context.js";
+import {publicPhotoShareTh} from "./messages/publicPhotoShare.js";
+import {useToolbox,useToolText} from "./context.js";
 import {useState} from "react";
 import {LockKeyhole,Share2} from "lucide-react";
 import {Button} from "./primitives/button.js";
@@ -10,7 +11,7 @@ import {automaticShareTag,MAX_SHARE_BYTES,MAX_SHARE_PHOTOS,shareFields} from "..
 
 export function PublicPhotoShare({photos}:{photos:StoredPhoto[]}) {
  const {client}=useToolbox();
- const t=useToolMessages().publicPhotoShare;
+ const t=useToolText("publicPhotoShare",publicPhotoShareTh);
   const [selected,setSelected]=useState<string[]>([]);
   const [eventName,setEventName]=useState("");
   const [tags,setTags]=useState("");

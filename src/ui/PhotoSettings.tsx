@@ -1,5 +1,6 @@
 "use client";
 
+import {photoSettingsTh} from "./messages/photoSettings.js";
 import {useEffect,useRef,useState} from "react";
 import {Dialog} from "radix-ui";
 import {ImagePlus,Trash2,X,Settings} from "lucide-react";
@@ -8,10 +9,10 @@ import {readPhotoGps,type GeotaggedPhoto} from "../core/photo-gps.js";
 import {formatPhotoExpiry,type StoredPhoto} from "../storage/photo-storage.js";
 import {PublicPhotoShare} from "./PublicPhotoShare.js";
 import {Input} from "./primitives/input.js";
-import {useToolMessages} from "./context.js";
+import {useToolText} from "./context.js";
 
 export function PhotoSettings({open,onOpenChange,onAdd,storageReady,storageMessage,savedPhotos}:{open:boolean;onOpenChange:(open:boolean)=>void;onAdd:(photos:GeotaggedPhoto[])=>Promise<StoredPhoto[]>;storageReady:boolean;storageMessage:string;savedPhotos:StoredPhoto[]}) {
-  const t=useToolMessages().photoSettings;
+  const t=useToolText("photoSettings",photoSettingsTh);
   const objectUrls=useRef(new Set<string>());
   const [photos,setPhotos]=useState<{file:File;url:string;gps:{longitude:number;latitude:number;capturedAt:string|null;capturedOffset:string|null}|null}[]>([]);
   const [saving,setSaving]=useState(false);

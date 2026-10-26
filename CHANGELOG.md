@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.1.0
+
+Per-tool entry points, without breaking 1.0 imports.
+
+- `@thaiwater/toolbox-sdk/tools/photo`, `/tools/draw`, `/tools/data-files`, `/tools/navigation`: each exports the tool's plugin factory, UI components, store factory and Thai text defaults.
+- Tools read text through `useToolText(group, defaults)` and storage through `useToolStorage(kind, create)`, so a tool entry no longer loads every tool's text or stores. `useToolMessages()`/`thMessages` keep working.
+- `ToolboxRuntime.storage` is optional and may be partial; missing stores default to `storageName(appId, tool)`.
+- `storageName` and `formatExpiry` in `/storage`; `formatPhotoExpiry` is deprecated.
+- `tests/tool-boundaries.test.ts` fails if a tool entry imports another tool or an aggregate.
+
 ## 1.0.0
 
 Tool API 2.0 becomes the only toolbox contract. Storage schema v1 and the service HTTP contract are unchanged, so saved browser data and existing gateways keep working.

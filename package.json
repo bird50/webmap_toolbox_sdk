@@ -1,6 +1,6 @@
 {
   "name": "@thaiwater/toolbox-sdk",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "type": "module",
   "private": true,
   "files": [
@@ -44,6 +44,26 @@
       "types": "./dist/core/photo-gps.d.ts",
       "import": "./dist/core/photo-gps.js",
       "default": "./dist/core/photo-gps.js"
+    },
+    "./tools/photo": {
+      "types": "./dist/tools/photo.d.ts",
+      "import": "./dist/tools/photo.js",
+      "default": "./dist/tools/photo.js"
+    },
+    "./tools/draw": {
+      "types": "./dist/tools/draw.d.ts",
+      "import": "./dist/tools/draw.js",
+      "default": "./dist/tools/draw.js"
+    },
+    "./tools/data-files": {
+      "types": "./dist/tools/data-files.d.ts",
+      "import": "./dist/tools/data-files.js",
+      "default": "./dist/tools/data-files.js"
+    },
+    "./tools/navigation": {
+      "types": "./dist/tools/navigation.d.ts",
+      "import": "./dist/tools/navigation.js",
+      "default": "./dist/tools/navigation.js"
     },
     "./styles.css": "./dist/styles.css"
   },

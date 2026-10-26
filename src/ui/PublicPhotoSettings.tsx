@@ -1,15 +1,16 @@
 "use client";
 
+import {publicPhotoSettingsTh} from "./messages/publicPhotoSettings.js";
 import {useState,type RefObject} from "react";
 import {Dialog} from "radix-ui";
 import {Camera,RotateCcw,Search,X} from "lucide-react";
 import {Button} from "./primitives/button.js";
 import {Input} from "./primitives/input.js";
-import {useToolMessages} from "./context.js";
+import {useToolText} from "./context.js";
 import {emptyPublicPhotoFilters,publicPhotoFilters,type PublicPhotoFilters} from "../core/public-photo-query.js";
 
 export function PublicPhotoSettings({open,onOpenChange,filters,onApply,returnFocusRef}:{open:boolean;onOpenChange:(open:boolean)=>void;filters:PublicPhotoFilters;onApply:(filters:PublicPhotoFilters)=>void;returnFocusRef:RefObject<HTMLButtonElement|null>}) {
-  const t=useToolMessages().publicPhotoSettings;
+  const t=useToolText("publicPhotoSettings",publicPhotoSettingsTh);
   const [draft,setDraft]=useState(filters);
   const [error,setError]=useState("");
   return <Dialog.Root open={open} onOpenChange={onOpenChange} modal={false}>

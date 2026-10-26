@@ -133,3 +133,12 @@ test('messages override one string per group and keep the rest',async()=>{
  assert.match(container.textContent??'',/Data files/);
  assert.match(container.textContent??'',/Layer My Data Files \(0\)/);
 });
+test('tool entries work without configured storage: each tool opens its own default database',async()=>{
+ const {dataFilesTool:filesFromEntry}=await import('../src/tools/data-files.js');
+ const {createDataFileStorage}=await import('../src/storage/data-file-storage.js');
+ await createDataFileStorage('toolbox:entry-only:files:v1')('u8',{add:{name:'a.geojson',description:'',data:{type:'FeatureCollection',features:[{type:'Feature',properties:{},geometry:{type:'Point',coordinates:[100,13]}}]}}});
+ const {map}=fakeMap();
+ const bare={appId:'entry-only',client:createPublicClient()} as ToolboxRuntime;
+ await render(h(ui.ToolboxProvider,{runtime:bare,registry:createLayerRegistry([],'MEMBER'),user:{id:'u8',accessLevel:'MEMBER'},map,plugins:[filesFromEntry()]},h(ToolboxPanel)));
+ assert.match(container.textContent??'',/Layer My Data Files \(1\)/);
+});

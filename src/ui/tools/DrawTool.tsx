@@ -1,11 +1,12 @@
 "use client";
+import {drawToolTh} from "../messages/drawTool.js";
 import {PencilRuler} from "lucide-react";
 import {Switch} from "../primitives/switch.js";
 import type {LayerDefinition} from "../../core/layers.js";
-import {useToolMessages} from "../context.js";
+import {useToolText} from "../context.js";
 export type DrawToolProps={drawingLayers:LayerDefinition[];visible:Readonly<Record<string,boolean>>;onDrawingVisible:(id:string,visible:boolean)=>void;drawingToolbarOpen:boolean;onDrawingToolbarChange:(open:boolean)=>void;drawingCount:number};
 export function DrawTool({drawingLayers,visible,onDrawingVisible,drawingToolbarOpen,onDrawingToolbarChange,drawingCount}:DrawToolProps){
-const t=useToolMessages().drawTool;
+const t=useToolText("drawTool",drawToolTh);
 return <section aria-labelledby="draw-tool-title" className="overflow-hidden rounded-xl border border-[color:var(--sdk-border,#e2e8f0)]">
         <h3 id="draw-tool-title" className="flex items-center gap-2 border-b border-[color:var(--sdk-border-subtle,#f1f5f9)] p-3 text-sm font-semibold"><PencilRuler className="size-4 text-[color:var(--sdk-primary,#0f766e)]"/>{t.title}</h3>
         <div className="flex items-center justify-between gap-2 border-b border-[color:var(--sdk-border-subtle,#f1f5f9)] p-3"><label htmlFor="drawing-toolbar-toggle" className="text-xs font-semibold">{t.toolbar}</label><Switch id="drawing-toolbar-toggle" aria-controls="drawing-toolbar" checked={drawingToolbarOpen} onCheckedChange={onDrawingToolbarChange}/></div>

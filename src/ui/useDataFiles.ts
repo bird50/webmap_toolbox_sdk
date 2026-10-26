@@ -1,12 +1,15 @@
 "use client";
+import {dataFilesTh} from "./messages/dataFiles.js";
 import {useCallback,useEffect,useMemo,useRef,useState} from "react";
 import type {FeatureCollection} from "geojson";
 import type {StoredDataFile} from "../storage/data-file-storage.js";
-import {useToolMessages,useToolbox} from "./context.js";
+import {useToolStorage,useToolText} from "./context.js";
+import {createDataFileStorage} from "../storage/data-file-storage.js";
+import {storageName} from "../storage/names.js";
 export function useDataFiles(userId:string){
- const {storage}=useToolbox();const dataFileTransaction=storage.files;
+ const dataFileTransaction=useToolStorage("files",appId=>createDataFileStorage(storageName(appId,"files")));
  const [files,setFiles]=useState<StoredDataFile[]>([]);const [ready,setReady]=useState(false);const [error,setError]=useState("");const version=useRef(0);
- const t=useToolMessages().dataFiles;const messages=useRef(t);messages.current=t;
+ const t=useToolText("dataFiles",dataFilesTh);const messages=useRef(t);messages.current=t;
  const refresh=useCallback(async(change?:Parameters<typeof dataFileTransaction>[1])=>{
   const current=++version.current;
   try{const saved=await dataFileTransaction(userId,change);if(current===version.current){setFiles(saved);setError("");setReady(true);}}

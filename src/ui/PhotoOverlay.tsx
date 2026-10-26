@@ -1,11 +1,12 @@
 "use client";
+import {photoOverlayTh} from "./messages/photoOverlay.js";
 import {useEffect,useRef,useState} from "react";
 import {Camera,X} from "lucide-react";
 import type {LayerDefinition} from "../core/layers.js";
 import type {MapAdapter} from "../core/map.js";
 import {photoViewportBbox,type PublicPhotoFilters} from "../core/public-photo-query.js";
-import {formatPhotoExpiry} from "../storage/photo-storage.js";
-import {useToolbox,useToolboxMap,useToolMessages} from "./context.js";
+import {formatExpiry} from "../storage/expiry.js";
+import {useToolbox,useToolboxMap,useToolText} from "./context.js";
 
 export type MapPhoto={id:string;name:string;url:string;longitude:number;latitude:number;expiresAt?:number;eventName?:string;username?:string;capturedAt?:string;capturedOffset?:string|null;tags?:string[];shareUrl?:string};
 export type PublicPhotoStatus={count:number;loading:boolean;error:string;hasMore:boolean};
@@ -23,7 +24,7 @@ function useMapFrame(map:MapAdapter){
 /** Viewport-bounded public photo query: debounced, cancels stale requests, reloads on `notify("photos")`. */
 function usePublicPhotos(map:MapAdapter,layer:LayerDefinition,filters:PublicPhotoFilters,onStatus:(status:PublicPhotoStatus)=>void){
   const {client}=useToolbox();
-  const t=useToolMessages().photoOverlay,messages=useRef(t);messages.current=t;
+  const t=useToolText("photoOverlay",photoOverlayTh),messages=useRef(t);messages.current=t;
   const [photos,setPhotos]=useState<MapPhoto[]>([]);
   useEffect(()=>{
     let controller:AbortController|undefined,timer:ReturnType<typeof setTimeout>,disposed=false;
@@ -59,7 +60,7 @@ function popupPlacement(anchor:{x:number;y:number},width:number,height:number){
 /** Markers and one popup as HTML positioned with `MapAdapter.project`, so any engine with an adapter can show photos. */
 function PhotoMarkers({map,layer,photos,opacity}:{map:MapAdapter;layer:LayerDefinition;photos:MapPhoto[];opacity:number}){
   const {width,height}=useMapFrame(map);
-  const t=useToolMessages().photoOverlay;
+  const t=useToolText("photoOverlay",photoOverlayTh);
   const [selectedId,setSelectedId]=useState<string|null>(null);
   const photo=photos.find(item=>item.id===selectedId);
   useEffect(()=>{if(!photo)return;const close=(event:KeyboardEvent)=>{if(event.key==="Escape")setSelectedId(null);};window.addEventListener("keydown",close);return ()=>window.removeEventListener("keydown",close);},[photo]);
@@ -70,7 +71,7 @@ function PhotoMarkers({map,layer,photos,opacity}:{map:MapAdapter;layer:LayerDefi
     {photos.map(item=>{const point=place(item);return inView(point)&&<button key={item.id} type="button" aria-label={t.view(item.name)} title={item.eventName??item.name} className="pointer-events-auto absolute grid size-9 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-2 border-white text-white shadow-lg transition-transform hover:scale-110 focus-visible:ring-2 focus-visible:ring-[color:var(--sdk-ring,#0d9488)]" style={{left:point.x,top:point.y,opacity,backgroundColor:layer.color}} onPointerDown={event=>event.stopPropagation()} onClick={event=>{event.stopPropagation();setSelectedId(item.id);}}><Camera size={18} aria-hidden="true"/></button>;})}
     {photo&&anchor&&inView(anchor)&&<div role="dialog" aria-label={photo.name} className="pointer-events-auto absolute z-10 max-h-[calc(50%-32px)] w-[min(300px,80vw)] overflow-auto rounded-lg bg-white p-3 text-left shadow-xl" style={popupPlacement(anchor,width,height)} onPointerDown={event=>event.stopPropagation()}>
       <button type="button" aria-label={t.close} className="absolute right-1 top-1 grid size-6 place-items-center rounded text-[color:var(--sdk-muted,#64748b)]" onClick={()=>setSelectedId(null)}><X size={14}/></button>
-      {photo.expiresAt&&<p className="mb-2 pr-6 text-[10px] text-[color:var(--sdk-muted,#64748b)]">{t.storedUntil(formatPhotoExpiry(photo.expiresAt))}</p>}
+      {photo.expiresAt&&<p className="mb-2 pr-6 text-[10px] text-[color:var(--sdk-muted,#64748b)]">{t.storedUntil(formatExpiry(photo.expiresAt))}</p>}
       {photo.eventName&&<p className="mb-1 pr-6 text-sm font-semibold text-[color:var(--sdk-info,#0369a1)]">{photo.eventName}</p>}
       <p className="mb-2 pr-6 text-xs font-semibold">{photo.name}</p>
       {/* eslint-disable-next-line @next/next/no-img-element */}

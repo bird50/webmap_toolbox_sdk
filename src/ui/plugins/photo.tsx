@@ -1,10 +1,13 @@
 "use client";
+import {photoPluginTh} from "../messages/photoPlugin.js";
 import {useEffect,useRef,type ComponentType} from "react";
 import {PhotoOverlay,type PublicPhotoStatus} from "../PhotoOverlay.js";
 import type {GeotaggedPhoto} from "../../core/photo-gps.js";
 import {emptyPublicPhotoFilters,type PublicPhotoFilters} from "../../core/public-photo-query.js";
 import type {StoredPhoto} from "../../storage/photo-storage.js";
-import {useLayers,useMapAdapter,useToolbox,useToolDialog,useToolLayers,useToolMessages,useToolState,useToolUser} from "../context.js";
+import {createPhotoStorage} from "../../storage/photo-storage.js";
+import {storageName} from "../../storage/names.js";
+import {useLayers,useMapAdapter,useToolStorage,useToolDialog,useToolLayers,useToolText,useToolState,useToolUser} from "../context.js";
 import {TOOL_API_VERSION,type ToolComponentProps,type ToolPlugin,type WebmapCapability} from "../contracts.js";
 import {PhotoSettings} from "../PhotoSettings.js";
 import {PublicPhotoSettings} from "../PublicPhotoSettings.js";
@@ -24,16 +27,16 @@ export function usePhotoToolState(){
 }
 /** Restores My Photos from browser storage every minute and when the tab becomes visible; owns their object URLs. */
 function Controller(){
- const {storage}=useToolbox(),userId=useToolUser().id;
+ const storage=useToolStorage("photos",appId=>createPhotoStorage(storageName(appId,"photo"))),userId=useToolUser().id;
  const [,setStore]=useToolState("photos",pending);
  const mine=ownedLayer(useToolLayers(),"mine"),{registry}=useLayers(),map=useMapAdapter();
- const t=useToolMessages().photoPlugin;
+ const t=useToolText("photoPlugin",photoPluginTh);
  const latest=useRef({mine,registry,map,t});latest.current={mine,registry,map,t};
  useEffect(()=>{
   let cancelled=false;const urls=new Set<string>();
   const withUrl=(record:StoredPhoto):LocalPhoto=>{const url=URL.createObjectURL(record.blob);urls.add(url);return {...record,url};};
   async function add(photos:GeotaggedPhoto[]){
-   const stored=await storage.photos.savePhotos(userId,photos);
+   const stored=await storage.savePhotos(userId,photos);
    const added=stored.map(withUrl);
    setStore(current=>({...current,photos:[...current.photos,...added]}));
    const {mine,registry,map}=latest.current;
@@ -43,7 +46,7 @@ function Controller(){
   }
   async function restore(){
    try{
-    const result=await storage.photos.loadPhotos(userId);
+    const result=await storage.loadPhotos(userId);
     if(cancelled)return;
     const previous=[...urls];urls.clear();
     const photos=result.photos.map(withUrl);previous.forEach(url=>URL.revokeObjectURL(url));
