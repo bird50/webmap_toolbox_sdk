@@ -3,6 +3,7 @@ import {createContext,useCallback,useContext,useEffect,useMemo,useRef,useState,u
 import type {MapAdapter} from '../core/map.js';
 import type {PublicClient} from '../core/client.js';
 import type {LayerDefinition} from '../core/layers.js';
+import type {DataSource} from '../core/data-table.js';
 import {createLayerRegistry,type LayerRegistry} from '../core/registry.js';
 import {createToolWorkspaceStore,registerPluginLayers,type StateUpdate,type ToolUser,type ToolWorkspaceStore} from '../core/workspace.js';
 import type {BrowserStorage} from '../storage/index.js';
@@ -153,4 +154,29 @@ export function useLayerSettings(layerId:string){
  const name=plugin&&owner?plugin.layerSettings?.[owner.key]:undefined;
  const dialog=useDialogController(plugin?.id??'',name??'');
  return name?dialog:undefined;
+}
+const DATA='\u0000data';
+type DataSources=Readonly<Record<string,DataSource>>;
+const noSources:DataSources={};
+const sameSource=(a:DataSource|undefined,b:DataSource)=>!!a&&(Object.keys({...a,...b}) as (keyof DataSource)[]).every(key=>Object.is(a[key],b[key]));
+/**
+ * Offers rows to the Data Panel while the calling component is mounted (a tool's Controller, or host code).
+ * Pass undefined to offer nothing; IDs are workspace-wide, so use the layer ID when the rows belong to a layer.
+ */
+export function useDataSource(source:DataSource|undefined){
+ const {store}=useToolWorkspace();
+ const id=source?.id;
+ useEffect(()=>{if(!id)return;return ()=>store.setState<DataSources>(DATA,'sources',noSources,current=>{if(!(id in current))return current;const next={...current};delete next[id];return next;});},[store,id]);
+ // Runs after every render, but only stores a source whose fields changed.
+ useEffect(()=>{if(source)store.setState<DataSources>(DATA,'sources',noSources,current=>sameSource(current[source.id],source)?current:{...current,[source.id]:source});});
+}
+/** Offered data sources in registry order (sources without a layer last); by default only those whose layer is visible. */
+export function useDataSources({visibleOnly=true}:{visibleOnly?:boolean}={}):readonly DataSource[]{
+ const [sources]=useToolStateOf<DataSources>(DATA,'sources',noSources);
+ const {layers,visible}=useLayers();
+ return useMemo(()=>{
+  const rank=new Map(layers.map((layer,index)=>[layer.id,index]));
+  return Object.values(sources).filter(source=>!source.layerId||(rank.has(source.layerId)&&(!visibleOnly||visible[source.layerId])))
+   .sort((a,b)=>(rank.get(a.layerId??'')??Number.MAX_SAFE_INTEGER)-(rank.get(b.layerId??'')??Number.MAX_SAFE_INTEGER));
+ },[sources,layers,visible,visibleOnly]);
 }

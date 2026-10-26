@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.3.0
+
+Public sharing for Data Files, like photos and drawings. Needs Toolbox Service 1.2 and gateway routes for `/api/data-file-shares` (POST) and `/api/public/data-files` (GET).
+
+- My Data Files dialog: **Share Public** per file with name, description, the automatic `shareYYYY-MM-DD` tag and up to 10 tags (`DataFileShare`, text group `dataFileShare`).
+- New tool layer `public` → `public-data-files` (PUBLIC): features of shared files in the view (at most 500), drawn through the GeoJSON surface, offered to the Data Panel, filtered by keyword/tag in `PublicDataFilesSettings` (text group `publicDataFiles`). Drop it with `dataFilesTool({shared:false})`.
+- Contracts: `core/data-file-share.ts` (share fields, feature collection limits, public query/response) and `core/share-tags.ts` (tag rules and `automaticShareTag`, shared with photos); `viewportBbox` in `core/public-photo-query.ts`. The service keeps byte-identical copies.
+- `PublicClient` paths `dataFiles` and `dataFileShares`; `notify`/`subscribe` accept `"dataFiles"`.
+
+## 1.2.0
+
+Data Panel: an attribute table and summary chart for any layer, without breaking 1.x.
+
+- `DataSource` (package root) and `useDataSource(source)`/`useDataSources()` in `/react`: tools and hosts offer rows (GeoJSON features) tied to a registry layer; sources follow the layer's visibility and order.
+- `DataPanel` in `/react`: one tab per source, search, paging, row → map (`onSelect` to override), and a chart view (histogram for numeric columns, top categories otherwise). Text group `dataPanel`.
+- Data Files offers its rows (CSV columns included) as a source for its layer.
+- `WorkspacePanels data` slot below the map; both examples show the Data Panel.
+- Core helpers `tableColumns`, `numericValue`, `columnKind`, `matchesQuery`, `summarizeColumn`.
+
 ## 1.1.0
 
 Per-tool entry points, without breaking 1.0 imports.

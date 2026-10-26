@@ -9,7 +9,7 @@ const src=join(import.meta.dirname,'..','src');
 const owners:Record<string,RegExp>={
  photo:/^(ui\/plugins\/photo|ui\/PhotoOverlay|ui\/PhotoSettings|ui\/PublicPhoto\w+|ui\/tools\/PhotoTool|storage\/photo-storage|core\/photo-gps|core\/photo-share|ui\/messages\/(photo\w*|publicPhoto\w+))\.tsx?$/,
  draw:/^(ui\/plugins\/draw|ui\/Drawing\w+|ui\/usePublicDrawings|ui\/tools\/DrawTool|storage\/drawing-storage|core\/drawing|core\/drawing-contract|ui\/messages\/(draw\w*|publicDrawings))\.tsx?$/,
- 'data-files':/^(ui\/plugins\/data-files|ui\/DataFilesSettings|ui\/tools\/DataFilesTool|ui\/useDataFiles|storage\/data-file-storage|core\/data-files|ui\/messages\/dataFiles\w*)\.tsx?$/,
+ 'data-files':/^(ui\/plugins\/data-files|ui\/DataFilesSettings|ui\/DataFileShare|ui\/PublicDataFilesSettings|ui\/usePublicDataFiles|ui\/tools\/DataFilesTool|ui\/useDataFiles|storage\/data-file-storage|core\/data-files|core\/data-file-share|ui\/messages\/(dataFiles\w*|dataFileShare|publicDataFiles))\.tsx?$/,
  navigation:/^(ui\/plugins\/navigation|ui\/messages\/navigation)\.tsx?$/,
 };
 const aggregates=new Set(['ui/index.ts','ui/messages.ts','storage/index.ts','core/index.ts','adapters/index.ts']);

@@ -3,7 +3,7 @@ import {createRoot} from 'react-dom/client';
 import L from 'leaflet';
 import {createLayerRegistry,createPublicClient,type MapAdapter,type MapPointerEvent} from '@thaiwater/toolbox-sdk';
 import {createBrowserStorage} from '@thaiwater/toolbox-sdk/storage';
-import {ToolboxProvider,WorkspacePanels,LayerPanel,ToolboxPanel,ToolOverlays,ToolDialogs,MapAdapterProvider,dataFilesTool,drawTool,navigationTool,photoTool} from '@thaiwater/toolbox-sdk/react';
+import {ToolboxProvider,WorkspacePanels,LayerPanel,ToolboxPanel,DataPanel,ToolOverlays,ToolDialogs,MapAdapterProvider,dataFilesTool,drawTool,navigationTool,photoTool} from '@thaiwater/toolbox-sdk/react';
 import 'leaflet/dist/leaflet.css';
 import '@thaiwater/toolbox-sdk/styles.css';
 import {createLeafletAdapter} from './leaflet-adapter';
@@ -32,6 +32,6 @@ function LeafletMap(){
  </div>;
 }
 createRoot(document.getElementById('root')!).render(<ToolboxProvider runtime={runtime} registry={registry} plugins={plugins} user={{id:'demo-user',accessLevel:'MEMBER'}}>
- <WorkspacePanels style={{height:'100dvh'}} layer={<LayerPanel registry={registry}/>} toolbox={<div className="space-y-4"><h2>Toolbox</h2><ToolboxPanel/></div>} map={<LeafletMap/>}/>
+ <WorkspacePanels style={{height:'100dvh'}} data={<DataPanel/>} layer={<LayerPanel registry={registry}/>} toolbox={<div className="space-y-4"><h2>Toolbox</h2><ToolboxPanel/></div>} map={<LeafletMap/>}/>
  <ToolDialogs/>
 </ToolboxProvider>);

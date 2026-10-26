@@ -1,6 +1,6 @@
 # Toolbox SDK
 
-Reusable Photo, Draw and Data Files tools for any React web map laid out as three panels: **Map**, **Layer**, **Toolbox**. Each tool is a plugin that owns its layers, state, map overlay and dialogs; the host supplies the map (through a `MapAdapter`), the layer registry and the gateway. `@thaiwater/toolbox-sdk` contains no imports from ThaiWater, Next.js, Prisma or the service source, and its tools run on any engine with an adapter (MapLibre ships with the package; `examples/leaflet` shows Leaflet).
+Reusable Photo, Draw and Data Files tools for any React web map laid out as three panels: **Map**, **Layer**, **Toolbox**, plus an optional **Data** panel (attribute table and chart). Each tool is a plugin that owns its layers, state, map overlay and dialogs; the host supplies the map (through a `MapAdapter`), the layer registry and the gateway. `@thaiwater/toolbox-sdk` contains no imports from ThaiWater, Next.js, Prisma or the service source, and its tools run on any engine with an adapter (MapLibre ships with the package; `examples/leaflet` shows Leaflet).
 
 ## Build and install
 
@@ -36,7 +36,7 @@ Map, Layer and Toolbox are slots: the host decides placement, dimensions and vis
 | Import | Responsibility |
 | --- | --- |
 | package root | Layer/map contracts, `createLayerRegistry`, workspace store, public client, drawing/photo-share/public-query contracts |
-| `/react` | `ToolboxProvider`, `ToolboxPanel`/`ToolOverlays`/`ToolDialogs`, hooks, built-in plugins, tool UI components, `thMessages`, `WorkspacePanels`/`LayerPanel` |
+| `/react` | `ToolboxProvider`, `ToolboxPanel`/`ToolOverlays`/`ToolDialogs`, `DataPanel`, hooks, built-in plugins, tool UI components, `thMessages`, `WorkspacePanels`/`LayerPanel` |
 | `/maplibre` | `createMapLibreAdapter`, `MapLibreToolboxBridge`, MapLibre GeoJSON surface, `RegistryLayers` |
 | `/storage` | Browser storage factories with app namespaces, `storageName`, `formatExpiry` |
 | `/tools/photo`, `/tools/draw`, `/tools/data-files`, `/tools/navigation` | One tool each: plugin factory, its UI components, store factory and text defaults |
@@ -46,6 +46,10 @@ Map, Layer and Toolbox are slots: the host decides placement, dimensions and vis
 Only these paths are public API; files under `dist/` are not importable individually.
 
 Import tools from their own entry when an app uses only some of them (`import {photoTool} from '@thaiwater/toolbox-sdk/tools/photo'`). A tool entry pulls in the shared runtime and its own files only — never another tool, the all-in-one message table or `createBrowserStorage` — and `tests/tool-boundaries.test.ts` enforces this, so each tool can later become its own package without code changes. `/react` still exports everything for existing apps.
+
+## Data Panel
+
+`<DataPanel/>` shows rows offered with `useDataSource({id,title,layerId,features,columns?,labels?,loading?,error?,note?})`, one tab per source whose layer is visible, in registry order. Data Files offers its file features automatically; a host offers its own layers the same way (keep `features` referentially stable, e.g. from state or `useMemo`). The panel has search, 100-row pages, and a chart view: a histogram for numeric columns (numbers or numeric strings such as `"1,250"`) or the top 10 categories otherwise. Clicking a row moves the map to the feature; pass `onSelect(feature,source)` to open your own popup instead, and `selected` to highlight it. The host decides where it sits and how tall it is (`WorkspacePanels data` puts it below the map). Rows are what the source holds: bound large layers (bbox queries, limits) before offering them.
 
 ## Map adapters
 
@@ -63,7 +67,7 @@ Drawing and photo overlays are HTML/SVG positioned with `project`, so they need 
 
 | Factory | Layers (owner key → default ID) | Requires |
 | --- | --- | --- |
-| `dataFilesTool()` | `files` → `my-data-files` | `map.geojson` |
+| `dataFilesTool()` | `files` → `my-data-files`, `public` → `public-data-files` | `map.geojson` |
 | `drawTool()` | `mine` → `my-drawing`, `public` → `public-drawing` | `map.viewport`, `map.project`, `map.events` |
 | `photoTool()` | `mine` → `my-photos`, `public` → `public-photos` | `map.viewport`, `map.project`, `map.events` |
 | `navigationTool({home})` | none | `map.navigate` |
@@ -88,7 +92,7 @@ Colours are CSS variables with the previous defaults as fallbacks: `--sdk-primar
 
 My Photos, My Drawing and Data Files stay in IndexedDB. Database names contain appId/tool/schema version; records are scoped to userId. Photo retention is 15 days from add; drawing retention is 15 days from explicit save. Reads do not extend expiry. `createBrowserStorage(appId, legacyNames)` preserves an existing host's databases without uploading or silently migrating them.
 
-`PublicClient` talks to the host gateway (`/api/photo-shares`, `/api/public/photos`, `/api/drawing-shares`, `/api/public/drawings` by default). Configure `baseUrl`, endpoint paths or an injected fetch function. Requests preserve AbortSignals. Instance-scoped refresh events prevent unrelated apps from sharing event listeners. No service key is accepted or stored by the browser SDK. Your backend must check session/origin/access and then call Toolbox Service using its secret. Sharing a service between organizations requires tenant-aware server authorization; this SDK alone does not implement multi-tenancy. Prefer same-origin proxies; never expose TOOLBOX_SERVICE_KEY to the browser.
+`PublicClient` talks to the host gateway (`/api/photo-shares`, `/api/public/photos`, `/api/drawing-shares`, `/api/public/drawings`, `/api/data-file-shares`, `/api/public/data-files` by default). Photos, drawings and data files are published the same way: an explicit Save & Share Public with a name/event, description where it applies, an automatic `shareYYYY-MM-DD` tag and up to 10 tags. Configure `baseUrl`, endpoint paths or an injected fetch function. Requests preserve AbortSignals. Instance-scoped refresh events prevent unrelated apps from sharing event listeners. No service key is accepted or stored by the browser SDK. Your backend must check session/origin/access and then call Toolbox Service using its secret. Toolbox Service 1.1 issues one key per app (`npm run key:create`) and keeps each app's shares separate; give every app its own key. Give the gateway two keys: scope `read` for the GETs behind public layers and share pages, and `read,write` only for publishing (Share Public of photos and drawings). Data Files never reaches the service. Prefer same-origin proxies; never expose TOOLBOX_SERVICE_KEY to the browser.
 
 ## Examples
 
@@ -105,4 +109,4 @@ MapLibre: http://localhost:4174 (the build copies MapLibre 6's worker next to th
 
 ## Compatibility
 
-Package 1.1.0; Tool API 2.0; storage schema v1; service HTTP contract unchanged. Treat each as a separate version and change contracts with tests and a migration note (see `CHANGELOG.md`). Do not load unreviewed toolbox JavaScript from arbitrary URLs.
+Package 1.3.0; Tool API 2.0; storage schema v1; service HTTP contract unchanged. Treat each as a separate version and change contracts with tests and a migration note (see `CHANGELOG.md`). Do not load unreviewed toolbox JavaScript from arbitrary URLs.

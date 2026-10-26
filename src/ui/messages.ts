@@ -12,9 +12,12 @@ import {drawToolTh} from "./messages/drawTool.js";
 import {dataFilesSettingsTh} from "./messages/dataFilesSettings.js";
 import {dataFilesToolTh} from "./messages/dataFilesTool.js";
 import {dataFilesTh} from "./messages/dataFiles.js";
+import {dataFileShareTh} from "./messages/dataFileShare.js";
+import {publicDataFilesTh} from "./messages/publicDataFiles.js";
 import {navigationTh} from "./messages/navigation.js";
 import {layerPanelTh} from "./messages/layerPanel.js";
 import {runtimeTh} from "./messages/runtime.js";
+import {dataPanelTh} from "./messages/dataPanel.js";
 import {useMessageOverrides} from "./context.js";
 import {useMemo} from "react";
 
@@ -28,7 +31,7 @@ export const thMessages={
  ...runtimeTh,
  photoTool:photoToolTh,photoSettings:photoSettingsTh,publicPhotoSettings:publicPhotoSettingsTh,publicPhotoShare:publicPhotoShareTh,photoOverlay:photoOverlayTh,photoPlugin:photoPluginTh,
  drawingToolbar:drawingToolbarTh,drawingWorkspace:drawingWorkspaceTh,drawingShare:drawingShareTh,publicDrawings:publicDrawingsTh,drawTool:drawToolTh,
- dataFilesSettings:dataFilesSettingsTh,dataFilesTool:dataFilesToolTh,dataFiles:dataFilesTh,navigation:navigationTh,layerPanel:layerPanelTh,
+ dataFilesSettings:dataFilesSettingsTh,dataFilesTool:dataFilesToolTh,dataFiles:dataFilesTh,dataFileShare:dataFileShareTh,publicDataFiles:publicDataFilesTh,navigation:navigationTh,layerPanel:layerPanelTh,dataPanel:dataPanelTh,
 };
 export type ToolboxMessages=typeof thMessages;
 export type ToolboxMessagesOverride={[K in keyof ToolboxMessages]?:ToolboxMessages[K] extends string|((...args:never[])=>unknown)?ToolboxMessages[K]:Partial<ToolboxMessages[K]>};

@@ -1,0 +1,28 @@
+/** Thai defaults for this component's user-facing text. Functions take the values they interpolate. */
+export const dataPanelTh={
+ title:"ข้อมูล",
+ sources:"ชั้นข้อมูลในตาราง",
+ count:(count:number)=>`${count.toLocaleString("th-TH")} รายการ`,
+ search:"ค้นหาในตาราง",
+ searchPlaceholder:"ค้นหาข้อมูล…",
+ clearSearch:"ล้างคำค้นหา",
+ table:"ตาราง",
+ chart:"กราฟ",
+ view:"มุมมอง",
+ locate:(label:string)=>`ดู ${label} บนแผนที่`,
+ noSources:"เปิดชั้นข้อมูลที่มีข้อมูลตาราง เพื่อดูรายการที่นี่",
+ empty:"ชั้นข้อมูลนี้ยังไม่มีรายการ",
+ noMatch:"ไม่พบรายการที่ตรงกับคำค้นหา",
+ loading:"กำลังโหลดข้อมูล…",
+ page:(page:number,pages:number)=>`หน้า ${page} / ${pages}`,
+ previous:"หน้าก่อน",
+ next:"หน้าถัดไป",
+ column:"คอลัมน์",
+ noColumns:"ไม่มีคอลัมน์ให้สรุป",
+ numberSummary:(count:number,min:string,mean:string,max:string)=>`${count.toLocaleString("th-TH")} ค่า · ต่ำสุด ${min} · เฉลี่ย ${mean} · สูงสุด ${max}`,
+ categorySummary:(count:number,distinct:number)=>`${count.toLocaleString("th-TH")} ค่า · ${distinct.toLocaleString("th-TH")} กลุ่ม`,
+ other:"อื่น ๆ",
+ chartLabel:(column:string)=>`กราฟสรุป ${column}`,
+ filtered:"สรุปจากรายการที่ตรงกับคำค้นหา",
+};
+export type DataPanelMessages=typeof dataPanelTh;

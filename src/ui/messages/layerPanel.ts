@@ -6,5 +6,6 @@ export const layerPanelTh={
  layerPanel:"Layer Panel",
  mapPanel:"Map Panel",
  toolboxPanel:"Toolbox Panel",
+ dataPanel:"Data Panel",
 };
 export type LayerPanelMessages=typeof layerPanelTh;

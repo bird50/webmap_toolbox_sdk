@@ -1,26 +1,15 @@
 import {z} from "zod";
 import type {FeatureCollection,Geometry,Feature} from "geojson";
+import {dataFeature,dataFeatureCollection,MAX_DATA_FEATURES} from "./data-file-share.js";
 
 export const DATA_RETENTION_MS=15*24*60*60*1000;
 export const MAX_DATA_BYTES=5*1024*1024;
-const position=z.array(z.number().finite()).min(2).max(3).refine(p=>Math.abs(p[0])<=180&&Math.abs(p[1])<=90,"พิกัดต้องเป็น WGS84 (longitude, latitude)");
-const line=z.array(position).min(2);
-const ring=z.array(position).min(4).refine(p=>JSON.stringify(p[0])===JSON.stringify(p[p.length-1]),"Polygon ต้องปิดวง");
-const polygon=z.array(ring).min(1);
-const geometry=z.discriminatedUnion("type",[
- z.object({type:z.literal("Point"),coordinates:position}),z.object({type:z.literal("MultiPoint"),coordinates:z.array(position).min(1)}),
- z.object({type:z.literal("LineString"),coordinates:line}),z.object({type:z.literal("MultiLineString"),coordinates:z.array(line).min(1)}),
- z.object({type:z.literal("Polygon"),coordinates:polygon}),z.object({type:z.literal("MultiPolygon"),coordinates:z.array(polygon).min(1)})
-]);
-const feature=z.object({type:z.literal("Feature"),geometry,properties:z.record(z.string(),z.union([z.string().max(2000),z.number().finite(),z.boolean(),z.null()])).nullable()});
 export function validateData(input:unknown):FeatureCollection {
  if(input&&typeof input==="object"&&"crs" in input&&input.crs)throw new Error("กรุณาแปลงเป็น GeoJSON WGS84 (EPSG:4326) โดยไม่มี crs ก่อนนำเข้า");
- const parsed=z.object({type:z.literal("FeatureCollection"),features:z.array(feature).min(1).max(5000)}).safeParse(input);
- if(!parsed.success)throw new Error("ข้อมูลไม่ถูกต้อง: รองรับ Point/Line/Polygon และ Multi ใน WGS84 ไม่เกิน 5,000 รายการ พร้อม properties แบบข้อความ/ตัวเลข/boolean เท่านั้น");
- let points=0;
- const count=(coordinates:unknown):void=>{if(!Array.isArray(coordinates))return;if(typeof coordinates[0]==="number")points++;else coordinates.forEach(count);};
- parsed.data.features.forEach(f=>count(f.geometry.coordinates));
- if(points>50000)throw new Error("เกิน 50,000 จุดพิกัดต่อไฟล์ กรุณาลดขนาดข้อมูล");
+ const shape=z.object({type:z.literal("FeatureCollection"),features:z.array(dataFeature).min(1).max(MAX_DATA_FEATURES)}).safeParse(input);
+ if(!shape.success)throw new Error("ข้อมูลไม่ถูกต้อง: รองรับ Point/Line/Polygon และ Multi ใน WGS84 ไม่เกิน 5,000 รายการ พร้อม properties แบบข้อความ/ตัวเลข/boolean เท่านั้น");
+ const parsed=dataFeatureCollection.safeParse(shape.data);
+ if(!parsed.success)throw new Error("เกิน 50,000 จุดพิกัดต่อไฟล์ กรุณาลดขนาดข้อมูล");
  return parsed.data as FeatureCollection;
 }
 

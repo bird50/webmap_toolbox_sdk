@@ -14,7 +14,7 @@ Reusable Photo / Draw / Data Files / Navigation tools for React web maps laid ou
 | --- | --- |
 | `src/core` | No React/engine: layers, `LayerRegistry`, `MapAdapter` + GeoJSON surface types, workspace store, `PublicClient`, zod contracts, parsers |
 | `src/storage` | IndexedDB stores per tool, `storageName`, `createBrowserStorage` |
-| `src/ui` | `context.tsx` (provider + hooks), `runtime.tsx` (ToolboxPanel/ToolOverlays/ToolDialogs), `contracts.ts` (ToolPlugin), tool components, `plugins/` (tool factories), `messages/` (one text group per file) |
+| `src/ui` | `context.tsx` (provider + hooks, incl. `useDataSource`), `DataPanel.tsx` (table/chart over offered sources), `runtime.tsx` (ToolboxPanel/ToolOverlays/ToolDialogs), `contracts.ts` (ToolPlugin), tool components, `plugins/` (tool factories), `messages/` (one text group per file) |
 | `src/tools/*.ts` | Per-tool public entries |
 | `src/adapters` | MapLibre adapter, bridge, GeoJSON surface, RegistryLayers |
 
