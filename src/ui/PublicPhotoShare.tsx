@@ -31,6 +31,7 @@ export function PublicPhotoShare({photos}:{photos:StoredPhoto[]}) {
       if(chosen.reduce((sum,photo)=>sum+photo.blob.size,0)>MAX_SHARE_BYTES-65536){setError(t.tooLarge);return;}
       const body=new FormData();body.set("eventName",fields.data.eventName);body.set("tags",JSON.stringify(fields.data.tags));
       chosen.forEach(photo=>body.append("photos",photo.blob,photo.name));
+      body.set("captions",JSON.stringify(chosen.map(photo=>photo.caption??"")));
       setBusy(true);
       try {
         const response=await client.request("photoShares",{method:"POST",body});

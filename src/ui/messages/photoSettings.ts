@@ -1,9 +1,11 @@
 /** Thai defaults for this component's user-facing text. Functions take the values they interpolate. */
 export const photoSettingsTh={
+ caption:"ข้อความประกอบรูป (ไม่บังคับ)",
+ captionPlaceholder:"เช่น ระดับน้ำสูงกว่าตลิ่ง 30 ซม.",
  title:"จัดการ My Photos",
  description:"อ่านพิกัด GPS จาก EXIF ของแต่ละภาพโดยอัตโนมัติ",
  close:"ปิดการจัดการ My Photos",
- intro:"รูปที่กด Add to My Photos จะเก็บบนเบราว์เซอร์นี้ 15 วัน ไม่อัปโหลดไปเซิร์ฟเวอร์ การล้างข้อมูลเว็บไซต์อาจทำให้รูปหายก่อนกำหนด อัปโหลดเฉพาะรูปที่เลือกเมื่อกด Save & Share Public",
+ intro:"รูปที่กด Add to My Photos จะเก็บบนเบราว์เซอร์นี้ 15 วัน ไม่อัปโหลดไปเซิร์ฟเวอร์ จากนั้นรวมเป็นชุดเหตุการณ์ด้านล่าง แล้วกด Add to map หรือ Save to Public ของแต่ละชุด การล้างข้อมูลเว็บไซต์อาจทำให้รูปหายก่อนกำหนด",
  opening:"กำลังเปิดที่เก็บรูปบนเครื่อง…",
  choose:"เลือกภาพถ่าย",
  skipped:"ข้ามไฟล์ที่ไม่รองรับหรือมีขนาดเกิน 10 MB ต่อรูปแล้ว",
@@ -13,7 +15,7 @@ export const photoSettingsTh={
  reading:"กำลังอ่านพิกัดจากรูป…",
  gpsSummary:(withGps:number,without:number)=>`มีพิกัด ${withGps} รูป · ไม่มีพิกัดหรืออ่านไม่ได้ ${without} รูป`,
  gpsOnly:"เพิ่มเฉพาะภาพที่มีพิกัด GPS ที่ถูกต้อง",
- saved:(n:number,until:string)=>`บันทึก ${n} รูปบนเครื่องแล้ว เก็บถึง ${until} (15 วัน)`,
+ saved:(n:number,until:string)=>`บันทึก ${n} รูปบนเครื่องแล้ว เก็บถึง ${until} (15 วัน) · สร้างชุดเหตุการณ์ด้านล่างเพื่อแสดงบนแผนที่`,
  saveFailed:"บันทึกรูปไม่สำเร็จ พื้นที่อาจเต็มหรือเบราว์เซอร์ไม่อนุญาต กรุณาตรวจสอบพื้นที่แล้วลองใหม่ รูปที่เลือกยังอยู่",
  saving:"กำลังบันทึก…",
  add:"Add to My Photos",

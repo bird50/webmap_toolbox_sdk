@@ -8,7 +8,7 @@ import {photoViewportBbox,type PublicPhotoFilters} from "../core/public-photo-qu
 import {formatExpiry} from "../storage/expiry.js";
 import {useToolbox,useToolboxMap,useToolText} from "./context.js";
 
-export type MapPhoto={id:string;name:string;url:string;longitude:number;latitude:number;expiresAt?:number;eventName?:string;username?:string;capturedAt?:string;capturedOffset?:string|null;tags?:string[];shareUrl?:string};
+export type MapPhoto={id:string;name:string;url:string;longitude:number;latitude:number;expiresAt?:number;eventName?:string;username?:string;capturedAt?:string;capturedOffset?:string|null;tags?:string[];shareUrl?:string;caption?:string};
 export type PublicPhotoStatus={count:number;loading:boolean;error:string;hasMore:boolean};
 
 /** Re-renders on every move/resize so HTML markers follow the map; returns the current size. */
@@ -75,7 +75,8 @@ function PhotoMarkers({map,layer,photos,opacity}:{map:MapAdapter;layer:LayerDefi
       {photo.eventName&&<p className="mb-1 pr-6 text-sm font-semibold text-[color:var(--sdk-info,#0369a1)]">{photo.eventName}</p>}
       <p className="mb-2 pr-6 text-xs font-semibold">{photo.name}</p>
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={photo.url} alt={photo.name} className="max-h-64 w-full object-contain"/>
+      <img src={photo.url} alt={photo.caption||photo.name} className="max-h-64 w-full object-contain"/>
+      {photo.caption&&<p className="mt-2 whitespace-pre-line break-words text-xs leading-5">{photo.caption}</p>}
       {photo.username&&<p className="mt-2 text-[10px] text-[color:var(--sdk-muted,#64748b)]">{t.sharedBy(photo.username)}</p>}
       {photo.capturedAt&&<p className="mt-2 text-[10px] text-[color:var(--sdk-muted,#64748b)]">{t.capturedAt(photo.capturedAt.replace("T"," "))} {photo.capturedOffset?`UTC${photo.capturedOffset}`:t.cameraTime}</p>}
       {photo.tags&&<p className="mt-1 break-words text-[10px] text-[color:var(--sdk-info,#0369a1)]">{photo.tags.map(tag=>`#${tag}`).join(" ")}</p>}

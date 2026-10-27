@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.4.0
+
+Photo event sets: photos are grouped into events in the browser before they reach the map or the server.
+
+- My Photos dialog: **Save ชุดเหตุการณ์** stores a named set (name required, 1–10 photos, tags) in this browser. Each set has **Add to map** (shows the set and zooms to it; there is no hide button, so hide the My Photos layer or delete the set), **เพิ่ม-ลบรูป / ข้อความ** (`PhotoEventActions.setPhotos`, `setCaption`), **Save to Public** (uploads the set once with its name and tags; the result link is kept, later photo edits do not change the Public copy) and delete (photos stay in My Photos). `PhotoEvents`, text group `photoEvents`.
+- Photo captions: `StoredPhoto.caption` (optional, up to `MAX_PHOTO_CAPTION` = 500 characters, `photoCaption`/`photoCaptions` in `core/photo-share`), typed when adding photos and edited in a set's editor (`storage.photos.setCaption`). Shown in the map popup (`MapPhoto.caption`) and sent with Save to Public as multipart `captions` (JSON array in photo order); Toolbox Service 1.3 stores and returns it.
+- The My Photos layer draws only photos of sets added to the map (`photosOnMap`, `usePhotoToolState().photos`); adding photos no longer moves the map.
+- Photo storage schema v2 (IndexedDB version 2): an `events` store plus `saveEvent`/`updateEvent`/`deleteEvent`; `loadPhotos` also returns `events` and drops expired photos from them. Upgrading puts each user's existing photos in one set, `LEGACY_PHOTO_EVENT`, already on the map, so nothing disappears.
+- `PhotoSettings` without `events`/`eventActions` keeps the 1.x direct share form.
+
+## 1.3.1
+
+- KML from Google Earth/ArcGIS imports: prefixes used but not declared (typically `xsi:schemaLocation`) are declared before parsing, since browsers reject such files ("ไฟล์ KML ไม่ถูกต้อง").
+- KML attributes become properties: ExtendedData `Data`/`SimpleData` and the two-column HTML attribute table in `description` (read as text, never rendered). A description that only holds that table is dropped; other HTML descriptions are kept as plain text.
+
 ## 1.3.0
 
 Public sharing for Data Files, like photos and drawings. Needs Toolbox Service 1.2 and gateway routes for `/api/data-file-shares` (POST) and `/api/public/data-files` (GET).

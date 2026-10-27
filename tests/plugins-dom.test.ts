@@ -118,12 +118,15 @@ test('photoTool draws My Photos as HTML markers positioned through MapAdapter.pr
  const {photoTool}=await import('../src/ui/plugins/photo.js');
  const rt=runtime(),{map}=fakeMap(),registry=createLayerRegistry([],'MEMBER');
  map.project=([lng,lat])=>({x:(lng-99)*100,y:(14-lat)*100});
- await rt.storage.photos.savePhotos('u6',[{file:new File(['x'],'river.jpg',{type:'image/jpeg'}),longitude:100,latitude:13}]);
+ const [river]=await rt.storage.photos.savePhotos('u6',[{file:new File(['x'],'river.jpg',{type:'image/jpeg'}),longitude:100,latitude:13},{file:new File(['y'],'hidden.jpg',{type:'image/jpeg'}),longitude:100.5,latitude:13}]);
+ // Only photos of an event added to the map are drawn.
+ const event=await rt.storage.photos.saveEvent('u6',{name:'flood',tags:[],photoIds:[river.id]});await rt.storage.photos.updateEvent('u6',event.id,{onMap:true});
  const {createObjectURL,revokeObjectURL}=URL;URL.createObjectURL=()=>'blob:test/river';URL.revokeObjectURL=()=>{};
  try{
   await render(h(ui.ToolboxProvider,{runtime:rt,registry,user:{id:'u6',accessLevel:'MEMBER'},map,plugins:[photoTool()]},h(ToolOverlays)));
   const marker=document.querySelector('button[aria-label="ดูภาพ river.jpg"]') as HTMLButtonElement;
   assert.ok(marker);assert.equal(marker.style.left,'100px');assert.equal(marker.style.top,'100px');
+  assert.equal(document.querySelector('button[aria-label="ดูภาพ hidden.jpg"]'),null,'photos outside an event on the map stay off it');
   click('button[aria-label="ดูภาพ river.jpg"]');
   assert.ok(document.querySelector('[role=dialog][aria-label="river.jpg"]'));
  }finally{URL.createObjectURL=createObjectURL;URL.revokeObjectURL=revokeObjectURL;}
@@ -209,4 +212,63 @@ test('data files: Save & Share Public posts one file with its fields, Public Dat
  await act(async()=>{(document.querySelector('#public-data-files-tag')!.closest('form')!.querySelector('button:not([type=button])') as HTMLButtonElement).click();});await debounce();await settle();
  assert.match(requests.filter(request=>request.url.startsWith('/api/public/data-files')).at(-1)!.url,/&tag=survey$/);
  assert.match(container.textContent??'',/ใช้เงื่อนไขค้นหา 1 ข้อ/);
+});
+test('photo events: a named set is saved in the browser, Add to map shows it, photos are added and removed, Save to Public uploads it once',async()=>{
+ const {photoTool}=await import('../src/ui/plugins/photo.js');
+ const posted:FormData[]=[];
+ const client=createPublicClient({fetch:async(url,init)=>{if(String(url)==='/api/photo-shares'){posted.push(init?.body as FormData);return Response.json({id:'s1',url:'/share/s1',tags:['share2026-10-27','flood']},{status:201});}return Response.json({photos:[],hasMore:false});}});
+ // fake-indexeddb clones happy-dom Files into plain objects; give the uploader real Blobs, as a browser's IndexedDB does.
+ const base=createBrowserStorage(`events-${++counter}`);
+ const photoStore={...base.photos,async loadPhotos(userId:string,now?:number){const result=await base.photos.loadPhotos(userId,now);return {...result,photos:result.photos.map(photo=>({...photo,blob:new Blob([photo.name],{type:'image/jpeg'})}))};}};
+ const rt:ToolboxRuntime={appId:'events',storage:{...base,photos:photoStore},client};
+ await rt.storage.photos.savePhotos('u8',[{file:new File(['a'],'a.jpg',{type:'image/jpeg'}),longitude:100,latitude:13},{file:new File(['b'],'b.jpg',{type:'image/jpeg'}),longitude:101,latitude:14}]);
+ const {map,named}=fakeMap(),registry=createLayerRegistry([],'MEMBER');
+ const {createObjectURL,revokeObjectURL}=URL;let n=0;URL.createObjectURL=()=>`blob:test/${++n}`;URL.revokeObjectURL=()=>{};
+ const markers=()=>[...document.querySelectorAll('button[aria-label^="ดูภาพ "]')].map(button=>button.getAttribute('aria-label'));
+ const field=(selector:string,value:string)=>act(()=>{const input=document.querySelector(selector) as HTMLInputElement;Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')!.set!.call(input,value);input.dispatchEvent(new Event('input',{bubbles:true}));});
+ try{
+  await render(h(ui.ToolboxProvider,{runtime:rt,registry,user:{id:'u8',accessLevel:'MEMBER'},map,plugins:[photoTool()]},h(ToolboxPanel),h(ToolOverlays),h(ToolDialogs)));
+  assert.deepEqual(markers(),[],'saved photos are not on the map before an event is added');
+  click('#toolbox-my-photos-settings');
+  const pick=(name:string)=>act(()=>([...document.querySelectorAll('fieldset label')].find(label=>label.textContent?.startsWith(name))!.querySelector('input') as HTMLInputElement).click());
+  const submit=()=>act(async()=>{(document.querySelector('#photo-event-name')!.closest('form')!.querySelector('button:not([type=button])') as HTMLButtonElement).click();});
+  pick('a.jpg');await submit();await settle();
+  assert.match(document.body.textContent??'',/กรุณาระบุชื่อเหตุการณ์/,'the event name is required');
+  assert.equal((await rt.storage.photos.loadPhotos('u8')).events.length,0);
+  pick('a.jpg');
+  field('#photo-event-name','น้ำท่วมสะพาน');field('#photo-event-tags','flood, เฝ้าระวัง');
+  pick('a.jpg');await submit();await settle();
+  assert.match(document.body.textContent??'',/บันทึกชุด "น้ำท่วมสะพาน" บนเครื่องแล้ว/);
+  const stored=await rt.storage.photos.loadPhotos('u8');
+  assert.deepEqual(stored.events.map(event=>[event.name,event.tags,event.photoIds.length,event.onMap]),[['น้ำท่วมสะพาน',['flood','เฝ้าระวัง'],1,false]]);
+  await act(async()=>{(document.querySelector('[aria-label="แสดงชุด น้ำท่วมสะพาน บนแผนที่"]') as HTMLButtonElement).click();});await settle();
+  assert.deepEqual(markers(),['ดูภาพ a.jpg']);
+  assert.deepEqual(named('fitBounds').at(-1),['fitBounds',[[100,13],[100,13]]]);
+  assert.equal(registry.getSnapshot().visible['my-photos'],true);
+  assert.doesNotMatch(document.body.textContent??'',/ซ่อนจากแผนที่/,'no hide button');
+  click('[aria-label="เพิ่ม-ลบรูปในชุด น้ำท่วมสะพาน"]');
+  const editor='form[aria-label="เพิ่ม-ลบรูปในชุด น้ำท่วมสะพาน"]';
+  const toggle=(name:string)=>act(()=>([...document.querySelectorAll(`${editor} label`)].find(label=>label.textContent===name)!.querySelector('input') as HTMLInputElement).click());
+  toggle('b.jpg');
+  const caption=document.querySelector('textarea[aria-label="ข้อความประกอบรูป b.jpg"]') as HTMLTextAreaElement;
+  act(()=>{Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value')!.set!.call(caption,' น้ำล้นสะพาน ');caption.dispatchEvent(new Event('input',{bubbles:true}));});
+  await act(async()=>{(document.querySelector(`${editor} button:not([type=button])`) as HTMLButtonElement).click();});await settle();
+  assert.deepEqual(markers().sort(),['ดูภาพ a.jpg','ดูภาพ b.jpg'],'an added photo appears on the map');
+  click('[aria-label="เพิ่ม-ลบรูปในชุด น้ำท่วมสะพาน"]');toggle('a.jpg');
+  await act(async()=>{(document.querySelector(`${editor} button:not([type=button])`) as HTMLButtonElement).click();});await settle();
+  assert.deepEqual(markers(),['ดูภาพ b.jpg'],'a removed photo leaves the map');
+  assert.deepEqual((await rt.storage.photos.loadPhotos('u8')).events[0].photoIds.length,1);
+  assert.equal((await rt.storage.photos.loadPhotos('u8')).photos.find(photo=>photo.name==='b.jpg')?.caption,'น้ำล้นสะพาน','the caption is saved on the photo');
+  click('[aria-label="ดูภาพ b.jpg"]');
+  assert.match(document.body.textContent??'',/น้ำล้นสะพาน/,'the map popup shows the caption');
+  await act(async()=>{(document.querySelector('[aria-label="Save to Public ชุด น้ำท่วมสะพาน"]') as HTMLButtonElement).click();});await settle();
+  assert.equal(posted.length,1);
+  assert.equal(posted[0].get('captions'),'["น้ำล้นสะพาน"]');
+  assert.deepEqual([posted[0].get('eventName'),posted[0].get('tags'),posted[0].getAll('photos').length],['น้ำท่วมสะพาน','["flood","เฝ้าระวัง"]',1]);
+  assert.match(document.body.textContent??'',/Save to Public แล้ว · share2026-10-27, flood/);
+  assert.equal(document.querySelector('[aria-label="Save to Public ชุด น้ำท่วมสะพาน"]'),null,'a saved set is not uploaded twice');
+  await act(async()=>{(document.querySelector('[aria-label="ลบชุด น้ำท่วมสะพาน"]') as HTMLButtonElement).click();});await settle();
+  const after=await rt.storage.photos.loadPhotos('u8');
+  assert.deepEqual([after.events.length,after.photos.length],[0,2],'deleting a set keeps its photos');
+ }finally{URL.createObjectURL=createObjectURL;URL.revokeObjectURL=revokeObjectURL}
 });

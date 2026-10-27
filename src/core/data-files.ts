@@ -13,6 +13,7 @@ export function validateData(input:unknown):FeatureCollection {
  return parsed.data as FeatureCollection;
 }
 
+const RESERVED_KEYS=["__proto__","constructor","prototype"];
 /** RFC-style quoted CSV fields, including commas, escaped quotes and newlines. */
 export function csvData(text:string):FeatureCollection {
  const rows:string[][]=[];let row:string[]=[],field="",quoted=false,closed=false;
@@ -27,7 +28,7 @@ export function csvData(text:string):FeatureCollection {
  if(quoted)throw new Error("CSV มีเครื่องหมายคำพูดที่ยังไม่ปิด");
  row.push(field);if(row.some(value=>value.trim()))rows.push(row);
  const header=rows.shift()?.map(value=>value.trim().toLowerCase())??[];
- if(new Set(header).size!==header.length||header.some(key=>!key||["__proto__","constructor","prototype"].includes(key)))throw new Error("ชื่อคอลัมน์ CSV ซ้ำหรือไม่ถูกต้อง");
+ if(new Set(header).size!==header.length||header.some(key=>!key||RESERVED_KEYS.includes(key)))throw new Error("ชื่อคอลัมน์ CSV ซ้ำหรือไม่ถูกต้อง");
  const lat=header.findIndex(key=>["latitude","lat"].includes(key));const lon=header.findIndex(key=>["longitude","lon","lng"].includes(key));
  if(lat<0||lon<0)throw new Error("CSV ต้องมีคอลัมน์ latitude/lat และ longitude/lon/lng (องศา WGS84)");
  return validateData({type:"FeatureCollection",features:rows.map((values,index)=>{
@@ -36,9 +37,39 @@ export function csvData(text:string):FeatureCollection {
  })});
 }
 
+/**
+ * Google Earth and ArcGIS exports often use `xsi:schemaLocation` without declaring `xsi`; browsers reject such XML
+ * outright. Declare every prefix that is used but not declared on the root element so the file parses.
+ */
+export function declareMissingPrefixes(text:string){
+ const declared=new Set([...text.matchAll(/xmlns:([A-Za-z_][\w.-]*)\s*=/g)].map(match=>match[1]));
+ // Prefixed element and attribute names only: `<p:name` or ` p:name=`, never text such as "http://".
+ const used=new Set([...text.replace(/<!\[CDATA\[[\s\S]*?\]\]>/g,"").matchAll(/(?:<\/?|\s)([A-Za-z_][\w.-]*):[A-Za-z_][\w.-]*(?=[\s>/=])/g)].map(match=>match[1]));
+ const missing=[...used].filter(prefix=>!declared.has(prefix)&&!/^xml/i.test(prefix));
+ if(!missing.length)return text;
+ return text.replace(/<kml\b/,`<kml ${missing.map(prefix=>`xmlns:${prefix}="urn:x-undeclared:${prefix}"`).join(" ")}`);
+}
+const decodeEntities=(value:string)=>value.replace(/&(nbsp|amp|lt|gt|quot|#39|#(\d+));/g,(_,name:string,code?:string)=>code?String.fromCodePoint(Number(code)):({nbsp:" ",amp:"&",lt:"<",gt:">",quot:'"',"#39":"'"} as Record<string,string>)[name]);
+const plain=(html:string)=>decodeEntities(html.replace(/<[^>]*>/g," ")).replace(/\s+/g," ").trim();
+/**
+ * Attributes of a Placemark: ExtendedData (Data/SimpleData), and the two-column HTML table that ArcGIS
+ * and Google Earth put in `description`. The HTML is read as text, never rendered.
+ */
+export function kmlAttributes(place:Element,description:string){
+ const properties:Record<string,string>={};
+ const set=(key:string,value:string)=>{const name=key.trim().slice(0,100);if(name&&!RESERVED_KEYS.includes(name)&&!["name","description"].includes(name))properties[name]=value.slice(0,2000);};
+ for(const data of Array.from(place.getElementsByTagNameNS("*","Data")))set(data.getAttribute("name")??"",data.getElementsByTagNameNS("*","value")[0]?.textContent?.trim()??"");
+ for(const data of Array.from(place.getElementsByTagNameNS("*","SimpleData")))set(data.getAttribute("name")??"",data.textContent?.trim()??"");
+ let table=false;
+ // Cells may not span other cells or rows, so a header row next to a nested table is never read as a pair.
+ const cell=String.raw`<td[^>]*>((?:(?!<\/?t[dr]\b)[\s\S])*)<\/td>`;
+ for(const row of description.matchAll(new RegExp(String.raw`<tr[^>]*>\s*${cell}\s*${cell}\s*<\/tr>`,"gi"))){table=true;set(plain(row[1]),plain(row[2]));}
+ // A description that only wraps the attribute table adds nothing; other HTML is kept as plain text.
+ return {properties,description:table?"":/<[a-z!/]/i.test(description)?plain(description).slice(0,2000):description};
+}
 export function kmlData(text:string):FeatureCollection {
  if(/<!DOCTYPE|<!ENTITY/i.test(text))throw new Error("ไม่รองรับ DTD/Entity ใน KML");
- const document=new DOMParser().parseFromString(text,"application/xml");
+ const document=new DOMParser().parseFromString(declareMissingPrefixes(text),"application/xml");
  if(document.getElementsByTagName("parsererror").length||document.documentElement.localName!=="kml")throw new Error("ไฟล์ KML ไม่ถูกต้อง");
  const nodes=(root:Element|Document,name:string)=>Array.from(root.getElementsByTagNameNS("*",name));
  const coordinates=(element:Element)=>{
@@ -47,7 +78,8 @@ export function kmlData(text:string):FeatureCollection {
  };
  const features:Feature[]=[];
  for(const place of nodes(document,"Placemark")){
-  const properties={name:nodes(place,"name")[0]?.textContent??"",description:nodes(place,"description")[0]?.textContent??""};
+  const attributes=kmlAttributes(place,nodes(place,"description")[0]?.textContent??"");
+  const properties={name:nodes(place,"name")[0]?.textContent?.trim()??"",...(attributes.description?{description:attributes.description}:{}),...attributes.properties};
   let found=false;
   for(const element of Array.from(place.getElementsByTagNameNS("*","*"))){
    let shape:Geometry|undefined;

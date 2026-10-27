@@ -4,6 +4,7 @@ import {publicPhotoSettingsTh} from "./messages/publicPhotoSettings.js";
 import {publicPhotoShareTh} from "./messages/publicPhotoShare.js";
 import {photoOverlayTh} from "./messages/photoOverlay.js";
 import {photoPluginTh} from "./messages/photoPlugin.js";
+import {photoEventsTh} from "./messages/photoEvents.js";
 import {drawingToolbarTh} from "./messages/drawingToolbar.js";
 import {drawingWorkspaceTh} from "./messages/drawingWorkspace.js";
 import {drawingShareTh} from "./messages/drawingShare.js";
@@ -29,7 +30,7 @@ import {useMemo} from "react";
  */
 export const thMessages={
  ...runtimeTh,
- photoTool:photoToolTh,photoSettings:photoSettingsTh,publicPhotoSettings:publicPhotoSettingsTh,publicPhotoShare:publicPhotoShareTh,photoOverlay:photoOverlayTh,photoPlugin:photoPluginTh,
+ photoTool:photoToolTh,photoSettings:photoSettingsTh,publicPhotoSettings:publicPhotoSettingsTh,publicPhotoShare:publicPhotoShareTh,photoOverlay:photoOverlayTh,photoPlugin:photoPluginTh,photoEvents:photoEventsTh,
  drawingToolbar:drawingToolbarTh,drawingWorkspace:drawingWorkspaceTh,drawingShare:drawingShareTh,publicDrawings:publicDrawingsTh,drawTool:drawToolTh,
  dataFilesSettings:dataFilesSettingsTh,dataFilesTool:dataFilesToolTh,dataFiles:dataFilesTh,dataFileShare:dataFileShareTh,publicDataFiles:publicDataFilesTh,navigation:navigationTh,layerPanel:layerPanelTh,dataPanel:dataPanelTh,
 };

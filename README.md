@@ -70,6 +70,8 @@ Drawing and photo overlays are HTML/SVG positioned with `project`, so they need 
 | `dataFilesTool()` | `files` → `my-data-files`, `public` → `public-data-files` | `map.geojson` |
 | `drawTool()` | `mine` → `my-drawing`, `public` → `public-drawing` | `map.viewport`, `map.project`, `map.events` |
 | `photoTool()` | `mine` → `my-photos`, `public` → `public-photos` | `map.viewport`, `map.project`, `map.events` |
+
+Photos are grouped into event sets in the browser (a required name, tags, 1–10 photos that can be added or removed later). Only sets added with **Add to map** are drawn on My Photos; **Save to Public** uploads a set as one share. Each photo can carry a caption (up to 500 characters) that is shown in its popup and sent with Save to Public. Toolbox Service 1.3 stores the app name (gateway header `x-toolbox-app-name`) and the app user (`x-toolbox-username`, `anonymous` when absent) with every share.
 | `navigationTool({home})` | none | `map.navigate` |
 
 Factories take `id`, `title`, `accessLevel` and per-layer overrides (`layer`, `mine`, `shared`): any `LayerDefinition` field, or `false` to drop that layer. `createPhotoTool(Overlay, requires, options)` swaps the photo renderer. Tool layers are filtered by the registry's access level like any layer, so a `PUBLIC` registry hides the `MEMBER` "My …" layers.
@@ -90,7 +92,7 @@ Colours are CSS variables with the previous defaults as fallbacks: `--sdk-primar
 
 `runtime.storage` is optional and may be partial: a tool without a configured store opens its default database `storageName(appId, tool)` (`toolbox:<appId>:photo|draw|files:v1`, the same names `createBrowserStorage` uses), once per runtime. Pass explicit stores (or `createBrowserStorage(appId, legacyNames)`) to keep existing database names.
 
-My Photos, My Drawing and Data Files stay in IndexedDB. Database names contain appId/tool/schema version; records are scoped to userId. Photo retention is 15 days from add; drawing retention is 15 days from explicit save. Reads do not extend expiry. `createBrowserStorage(appId, legacyNames)` preserves an existing host's databases without uploading or silently migrating them.
+My Photos, My Drawing and Data Files stay in IndexedDB. Database names contain appId/tool/schema version; records are scoped to userId. The photo database is at IndexedDB version 2 (photos + event sets); version 1 databases upgrade in place. Photo retention is 15 days from add; drawing retention is 15 days from explicit save. Reads do not extend expiry. `createBrowserStorage(appId, legacyNames)` preserves an existing host's databases without uploading or silently migrating them.
 
 `PublicClient` talks to the host gateway (`/api/photo-shares`, `/api/public/photos`, `/api/drawing-shares`, `/api/public/drawings`, `/api/data-file-shares`, `/api/public/data-files` by default). Photos, drawings and data files are published the same way: an explicit Save & Share Public with a name/event, description where it applies, an automatic `shareYYYY-MM-DD` tag and up to 10 tags. Configure `baseUrl`, endpoint paths or an injected fetch function. Requests preserve AbortSignals. Instance-scoped refresh events prevent unrelated apps from sharing event listeners. No service key is accepted or stored by the browser SDK. Your backend must check session/origin/access and then call Toolbox Service using its secret. Toolbox Service 1.1 issues one key per app (`npm run key:create`) and keeps each app's shares separate; give every app its own key. Give the gateway two keys: scope `read` for the GETs behind public layers and share pages, and `read,write` only for publishing (Share Public of photos and drawings). Data Files never reaches the service. Prefer same-origin proxies; never expose TOOLBOX_SERVICE_KEY to the browser.
 
@@ -109,4 +111,4 @@ MapLibre: http://localhost:4174 (the build copies MapLibre 6's worker next to th
 
 ## Compatibility
 
-Package 1.3.0; Tool API 2.0; storage schema v1; service HTTP contract unchanged. Treat each as a separate version and change contracts with tests and a migration note (see `CHANGELOG.md`). Do not load unreviewed toolbox JavaScript from arbitrary URLs.
+Package 1.4.0; Tool API 2.0; storage schema v1; service HTTP contract unchanged. Treat each as a separate version and change contracts with tests and a migration note (see `CHANGELOG.md`). Do not load unreviewed toolbox JavaScript from arbitrary URLs.

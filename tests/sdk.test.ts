@@ -30,3 +30,27 @@ test('adapter removes only its own listeners and validates navigation',()=>{
  let attached=0,removed=0;const map={on(){attached++;},off(){removed++;},flyTo(){}} as unknown as MapLibreMap;
  const adapter=createMapLibreAdapter(()=>map);const fn=()=>{};adapter.on('move',fn);adapter.on('resize',fn);adapter.off('move',fn);adapter.dispose();assert.equal(attached,2);assert.equal(removed,2);assert.throws(()=>adapter.navigate({longitude:999,latitude:0,zoom:3}));
 });
+test('photo events: owner-scoped, cleaned when photos expire, and v1 databases keep their photos on the map',async()=>{
+ const storage=createBrowserStorage('events-app');const file=(name:string)=>({file:new File([name],name,{type:'image/jpeg'}),longitude:100,latitude:13});
+ const [a]=await storage.photos.savePhotos('alice',[file('a.jpg')],1000),[b]=await storage.photos.savePhotos('alice',[file('b.jpg')],5000);
+ const event=await storage.photos.saveEvent('alice',{name:'flood',tags:['x'],photoIds:[a.id,b.id,a.id]},6000);
+ assert.deepEqual([event.photoIds.length,event.onMap],[2,false]);
+ const [c]=await storage.photos.savePhotos('alice',[{...file('c.jpg'),caption:'  ตลิ่งพัง  '}],6000);
+ assert.equal(c.caption,'ตลิ่งพัง','captions are trimmed when saved');
+ await assert.rejects(storage.photos.setCaption('bob',c.id,'x'),'only the owner changes a caption');
+ assert.equal((await storage.photos.setCaption('alice',c.id,' ใหม่ ')).caption,'ใหม่');
+ const cleared=await storage.photos.setCaption('alice',c.id,' ');
+ assert.equal('caption' in cleared,false,'an empty caption is removed');
+ assert.equal(cleared.expiresAt,c.expiresAt,'editing keeps the expiry');
+ await assert.rejects(storage.photos.updateEvent('bob',event.id,{onMap:true}));
+ assert.equal((await storage.photos.updateEvent('alice',event.id,{onMap:true})).onMap,true);
+ await storage.photos.deleteEvent('bob',event.id);
+ assert.equal((await storage.photos.loadPhotos('alice',6000)).events.length,1,'others cannot delete it');
+ assert.deepEqual((await storage.photos.loadPhotos('alice',1000+15*86400000)).events[0].photoIds,[b.id],'expired photos leave the set');
+ assert.equal((await storage.photos.loadPhotos('alice',5000+15*86400000)).events.length,0,'an empty set is removed');
+ // A database created by SDK 1.x (version 1, photos only).
+ await new Promise<void>((resolve,reject)=>{const request=indexedDB.open('legacy-photos',1);request.onupgradeneeded=()=>{const store=request.result.createObjectStore('photos',{keyPath:'id'});store.createIndex('userId','userId');store.createIndex('expiresAt','expiresAt');store.add({id:'p1',userId:'alice',name:'old.jpg',blob:new Blob(['o']),longitude:100,latitude:13,createdAt:1,expiresAt:Date.now()+86400000});};request.onsuccess=()=>{request.result.close();resolve();};request.onerror=()=>reject(request.error);});
+ const {createPhotoStorage,LEGACY_PHOTO_EVENT}=await import('../src/storage/photo-storage.js');
+ const legacy=await createPhotoStorage('legacy-photos').loadPhotos('alice');
+ assert.deepEqual(legacy.events.map(event=>[event.name,event.photoIds,event.onMap]),[[LEGACY_PHOTO_EVENT,['p1'],true]]);
+});

@@ -10,6 +10,7 @@ export {dataPanelTh,type DataPanelMessages} from './messages/dataPanel.js';
 export * from './PhotoSettings.js';
 export * from './PublicPhotoSettings.js';
 export * from './PublicPhotoShare.js';
+export * from './PhotoEvents.js';
 export * from './PhotoOverlay.js';
 export * from './DrawingWorkspace.js';
 export * from './DrawingToolbar.js';

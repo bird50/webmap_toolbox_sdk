@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {DOMParser} from '@xmldom/xmldom';
-import {csvData,kmlData,validateData,parseDataFile,DATA_RETENTION_MS} from '../src/core/data-files.js';
+import {csvData,kmlData,validateData,parseDataFile,declareMissingPrefixes,DATA_RETENTION_MS} from '../src/core/data-files.js';
 
 // Node has no DOMParser; the browser implementation is what ships, xmldom stands in for tests only.
 globalThis.DOMParser??=DOMParser as unknown as typeof globalThis.DOMParser;
@@ -60,4 +60,19 @@ test('file parser dispatches by extension, strips BOM, wraps single Feature and 
  await assert.rejects(parseDataFile(new File(['bad'],'bad.kmz')),/รองรับ/);
  await assert.rejects(parseDataFile(new File([new Uint8Array(5*1024*1024+1)],'big.csv')),/5 MB/);
  assert.equal(DATA_RETENTION_MS,15*24*60*60*1000);
+});
+test('KML exported by Google Earth/ArcGIS: undeclared xsi prefix, attribute table in description, ExtendedData',()=>{
+ const html=`<html xmlns:fo="http://www.w3.org/1999/XSL/Format"><body style="margin:0px"><table><tr><td>บึงปากจาบ</td></tr><tr><td><table>
+<tr><td>FID</td><td>0</td></tr><tr bgcolor="#D4E4F3"><td>PROV_Name</td><td>ชัยภูมิ</td></tr><tr><td>AREA</td><td>157165</td></tr><tr><td>__proto__</td><td>x</td></tr><tr><td>Note</td><td>a &amp; b</td></tr></table></td></tr></table></body></html>`;
+ const kml=`<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx="http://www.google.com/kml/ext/2.2"><Document id="d" xsi:schemaLocation="http://www.opengis.net/kml/2.2 x.xsd"><Folder>
+<Placemark><name> บึงปากจาบ </name><description><![CDATA[${html}]]></description><MultiGeometry><Polygon><outerBoundaryIs><LinearRing><coordinates>101.9,16.6,0 101.95,16.6,0 101.95,16.65,0 101.9,16.6,0 </coordinates></LinearRing></outerBoundaryIs></Polygon></MultiGeometry></Placemark>
+<Placemark><name>b</name><description>&lt;b&gt;ลึก&lt;/b&gt; 3 m</description><ExtendedData><Data name="depth"><value>3</value></Data><SchemaData><SimpleData name="code">W2</SimpleData></SchemaData></ExtendedData><Point><coordinates>100,13</coordinates></Point></Placemark>
+</Folder></Document></kml>`;
+ assert.match(declareMissingPrefixes(kml),/<kml xmlns:xsi="urn:x-undeclared:xsi" xmlns=/);
+ assert.equal(declareMissingPrefixes('<kml xmlns:xsi="u"><a xsi:b="1"/></kml>'),'<kml xmlns:xsi="u"><a xsi:b="1"/></kml>','declared prefixes are left alone');
+ const [lake,point]=kmlData(kml).features;
+ assert.deepEqual(lake.properties,{name:'บึงปากจาบ',FID:'0',PROV_Name:'ชัยภูมิ',AREA:'157165',Note:'a & b'});
+ assert.equal(lake.geometry.type,'Polygon');
+ assert.deepEqual(point.properties,{name:'b',description:'ลึก 3 m',depth:'3',code:'W2'});
 });
