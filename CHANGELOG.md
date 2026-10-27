@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.6.0
+
+Public Photos by set.
+
+- The viewport `public-photos` layer is gone and the Toolbox Public Photos switch with it. Its settings button opens **ค้นหาชุดรูปภาพ Public**: the newest sets are listed when it opens; filters (event name, username, tag, capture dates) combine with AND; 20 sets per page with โหลดเพิ่ม. Each set has **Add to map**, which adds its own layer `public-photos/<shareId>` titled "Public Photos/<set name>" (owner key `set`, `PUBLIC_PHOTO_SET_LAYER_KEY`, `publicSetLayerId()`), zooms to it, and later shows it again / zooms. Sets on the map are listed at the top of the dialog with a button to take them off.
+- Sets on the map are remembered in localStorage per app, tool and user (IDs and names only); a set the service no longer has leaves the list on the next load.
+- New contract `core/public-photo-sets` (`publicPhotoSetQuery`, `publicPhotoSet`, `publicPhotoSetResponse`, `PHOTO_SET_PAGE`), shared with Toolbox Service 1.4 (`GET /public/photo-shares`). `PublicClient` gets the `photoSets` path (`/api/public/photo-shares`) and `request(kind,init,query,item)` appends one encoded path segment (used for `photoShares/<id>`).
+- Breaking: `PhotoOverlay` takes `layers:{layer,photos}[]` and no longer queries the viewport (`PublicPhotoStatus` removed); `usePhotoToolState()` returns `events`, `sets`, `layers` and `photos` (no `filters`/`setStatus`); `PhotoTool` takes `publicSetsOnMap` instead of the public switch, status and filter props; `PublicPhotoSettings` is the set search (`added`, `onAdd`, `onRemove`). The photo plugin declares no static layers (version 4.0.0).
+
 ## 1.5.0
 
 One layer per photo event set.

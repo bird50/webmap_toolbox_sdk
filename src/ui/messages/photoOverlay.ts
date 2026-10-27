@@ -1,6 +1,5 @@
 /** Thai defaults for this component's user-facing text. Functions take the values they interpolate. */
 export const photoOverlayTh={
- loadFailed:"โหลด Public Photos ไม่สำเร็จ ลองปิด–เปิด Layer อีกครั้ง",
  view:(name:string)=>`ดูภาพ ${name}`,
  close:"ปิด",
  storedUntil:(date:string)=>`เก็บบนเครื่องถึง ${date}`,

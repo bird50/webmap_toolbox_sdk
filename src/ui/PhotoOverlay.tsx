@@ -1,15 +1,13 @@
 "use client";
 import {photoOverlayTh} from "./messages/photoOverlay.js";
-import {useEffect,useRef,useState} from "react";
+import {useEffect,useState} from "react";
 import {Camera,X} from "lucide-react";
 import type {LayerDefinition} from "../core/layers.js";
 import type {MapAdapter} from "../core/map.js";
-import {photoViewportBbox,type PublicPhotoFilters} from "../core/public-photo-query.js";
 import {formatExpiry} from "../storage/expiry.js";
-import {useToolbox,useToolboxMap,useToolText} from "./context.js";
+import {useToolboxMap,useToolText} from "./context.js";
 
 export type MapPhoto={id:string;name:string;url:string;longitude:number;latitude:number;expiresAt?:number;eventName?:string;username?:string;capturedAt?:string;capturedOffset?:string|null;tags?:string[];shareUrl?:string;caption?:string};
-export type PublicPhotoStatus={count:number;loading:boolean;error:string;hasMore:boolean};
 
 /** Re-renders on every move/resize so HTML markers follow the map; returns the current size. */
 function useMapFrame(map:MapAdapter){
@@ -20,37 +18,6 @@ function useMapFrame(map:MapAdapter){
     return ()=>{map.off("move",refresh);map.off("resize",refresh);map.off("moveend",refresh);};
   },[map]);
   return frame;
-}
-/** Viewport-bounded public photo query: debounced, cancels stale requests, reloads on `notify("photos")`. */
-function usePublicPhotos(map:MapAdapter,layer:LayerDefinition,filters:PublicPhotoFilters,onStatus:(status:PublicPhotoStatus)=>void){
-  const {client}=useToolbox();
-  const t=useToolText("photoOverlay",photoOverlayTh),messages=useRef(t);messages.current=t;
-  const [photos,setPhotos]=useState<MapPhoto[]>([]);
-  useEffect(()=>{
-    let controller:AbortController|undefined,timer:ReturnType<typeof setTimeout>,disposed=false;
-    async function load(){
-      controller?.abort();controller=new AbortController();const active=controller;
-      const bounds=map.getBounds();if(!bounds)return;
-      if(map.getZoom()<layer.minZoom||map.getZoom()>layer.maxZoom){setPhotos([]);onStatus({count:0,loading:false,error:"",hasMore:false});return;}
-      onStatus({count:0,loading:true,error:"",hasMore:false});
-      try{
-        const bbox=photoViewportBbox(bounds.getWest(),bounds.getSouth(),bounds.getEast(),bounds.getNorth());
-        const response=await client.request("photos",{signal:active.signal,cache:"no-store"},new URLSearchParams({bbox,limit:"200",...filters}));
-        if(!response.ok)throw new Error("Public Photos unavailable");
-        const result=await response.json() as {photos:MapPhoto[];hasMore:boolean};
-        if(disposed||active.signal.aborted)return;
-        setPhotos(result.photos.map(p=>({...p,url:client.url(p.url),shareUrl:p.shareUrl?client.url(p.shareUrl):undefined})));
-        onStatus({count:result.photos.length,loading:false,error:"",hasMore:result.hasMore});
-      }catch{
-        if(disposed||active.signal.aborted)return;
-        setPhotos([]);onStatus({count:0,loading:false,error:messages.current.loadFailed,hasMore:false});
-      }
-    }
-    function schedule(){controller?.abort();clearTimeout(timer);timer=setTimeout(()=>void load(),250);}
-    map.on("load",schedule);map.on("moveend",schedule);const unsubscribe=client.subscribe("photos",schedule);schedule();
-    return ()=>{disposed=true;controller?.abort();clearTimeout(timer);map.off("load",schedule);map.off("moveend",schedule);unsubscribe();};
-  },[map,layer,onStatus,filters,client]);
-  return photos;
 }
 /** Opens towards the larger half of the map and stays inside it horizontally, so the popup is never clipped. */
 function popupPlacement(anchor:{x:number;y:number},width:number,height:number){
@@ -84,14 +51,10 @@ function PhotoMarkers({map,layer,photos,opacity}:{map:MapAdapter;layer:LayerDefi
     </div>}
   </>;
 }
-function RemotePhotos({map,layer,opacity,filters,onStatus}:{map:MapAdapter;layer:LayerDefinition;opacity:number;filters:PublicPhotoFilters;onStatus:(status:PublicPhotoStatus)=>void}){
-  return <PhotoMarkers map={map} layer={layer} photos={usePublicPhotos(map,layer,filters,onStatus)} opacity={opacity}/>;
-}
-/** Engine-neutral photo layers: one marker set per visible event layer (browser photos), `shared` queries public photos for the viewport. */
-export function PhotoOverlay({events,shared,visible,opacity,publicFilters,onPublicStatus}:{events:readonly {layer:LayerDefinition;photos:MapPhoto[]}[];shared?:LayerDefinition;visible:Readonly<Record<string,boolean>>;opacity:Readonly<Record<string,number>>;publicFilters:PublicPhotoFilters;onPublicStatus:(status:PublicPhotoStatus)=>void}){
+/** Engine-neutral photo layers: one marker set per visible layer (My Photos event sets and Public photo sets). */
+export function PhotoOverlay({layers,visible,opacity}:{layers:readonly {layer:LayerDefinition;photos:MapPhoto[]}[];visible:Readonly<Record<string,boolean>>;opacity:Readonly<Record<string,number>>}){
   const {current:map}=useToolboxMap();
   return <div className="pointer-events-none absolute inset-0 z-10 overflow-hidden">
-    {events.map(({layer,photos})=>visible[layer.id]&&<PhotoMarkers key={layer.id} map={map} layer={layer} photos={photos} opacity={opacity[layer.id]??layer.opacity}/>)}
-    {shared&&visible[shared.id]&&<RemotePhotos map={map} layer={shared} opacity={opacity[shared.id]??shared.opacity} filters={publicFilters} onStatus={onPublicStatus}/>}
+    {layers.map(({layer,photos})=>visible[layer.id]&&<PhotoMarkers key={layer.id} map={map} layer={layer} photos={photos} opacity={opacity[layer.id]??layer.opacity}/>)}
   </div>;
 }

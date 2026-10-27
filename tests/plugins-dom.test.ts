@@ -64,13 +64,12 @@ test('tool dialogs are exclusive across tools and reachable from a host Layer Pa
  const {map}=fakeMap(),registry=createLayerRegistry([],'MEMBER');
  function HostSettings({layerId}:{layerId:string}){const settings=ui.useLayerSettings(layerId);return settings?h('button',{id:`settings-${layerId}`,'aria-expanded':settings.open,onClick:(event:{currentTarget:HTMLElement})=>settings.show(event.currentTarget)},'⚙'):h('span',{id:`none-${layerId}`});}
  const photo=createPhotoTool(()=>null,[]);
- await render(h(ui.ToolboxProvider,{runtime:runtime(),registry,user:{id:'u2',accessLevel:'MEMBER'},map,plugins:[dataFilesTool(),photo]},h(HostSettings,{layerId:'public-photos'}),h(HostSettings,{layerId:'my-data-files'}),h(HostSettings,{layerId:'my-photos'}),h(ToolboxPanel),h(ToolDialogs)));
- assert.ok(document.querySelector('#none-my-photos'),'layers without declared settings get no button');
- click('#settings-public-photos');
- assert.equal(document.querySelector('#settings-public-photos')?.getAttribute('aria-expanded'),'true');
+ await render(h(ui.ToolboxProvider,{runtime:runtime(),registry,user:{id:'u2',accessLevel:'MEMBER'},map,plugins:[dataFilesTool(),photo]},h(HostSettings,{layerId:'my-data-files'}),h(HostSettings,{layerId:'basins'}),h(ToolboxPanel),h(ToolDialogs)));
+ assert.ok(document.querySelector('#none-basins'),'layers without declared settings get no button');
+ click('#toolbox-public-photos-settings');
  assert.equal(document.querySelector('#toolbox-public-photos-settings')?.getAttribute('aria-expanded'),'true');
  click('#toolbox-data-files-settings');
- assert.equal(document.querySelector('#settings-public-photos')?.getAttribute('aria-expanded'),'false');
+ assert.equal(document.querySelector('#toolbox-public-photos-settings')?.getAttribute('aria-expanded'),'false');
  assert.equal(document.querySelector('#settings-my-data-files')?.getAttribute('aria-expanded'),'true');
  click('#toolbox-my-photos-settings');
  assert.equal(document.querySelector('#toolbox-data-files-settings')?.getAttribute('aria-expanded'),'false');
@@ -96,7 +95,7 @@ test('photo: the controller restores My Photos with object URLs and revokes them
  try{
   await render(h(ui.ToolboxProvider,{runtime:rt,registry,user:{id:'u4',accessLevel:'MEMBER'},map,plugins:[createPhotoTool(()=>null,[])]},h(ToolboxPanel)));
   assert.match(container.textContent??'',/My Photos \(ชุดบนแผนที่ 0 · รูป 1\)/);
-  assert.deepEqual(registry.getSnapshot().layers.map(l=>[l.id,l.visible]),[['public-photos',false]],'no My Photos layer until a set is added to the map');
+  assert.deepEqual(registry.getSnapshot().layers.map(l=>[l.id,l.visible]),[],'no photo layer until a set is added to the map');
   act(()=>root.unmount());root=createRoot(container);
   assert.ok(created.length>=1);
   assert.ok(created.every(url=>revoked.includes(url)),'every created URL is revoked');
@@ -247,7 +246,7 @@ test('photo events: a named set is saved in the browser, Add to map shows it, ph
   const eventLayers=()=>registry.getSnapshot().layers.filter(layer=>layer.id.startsWith('my-photos/')).map(layer=>layer.title);
   assert.deepEqual(eventLayers(),['My Photos/น้ำท่วมสะพาน'],'the set becomes its own layer');
   const layerId=registry.getSnapshot().layers.find(layer=>layer.title==='My Photos/น้ำท่วมสะพาน')!.id;
-  assert.deepEqual(registry.getSnapshot().layers.map(layer=>layer.id),[layerId,'public-photos']);
+  assert.deepEqual(registry.getSnapshot().layers.map(layer=>layer.id),[layerId]);
   assert.equal(registry.getSnapshot().layers[0].owner?.key,'event');
   act(()=>registry.setVisible(layerId,false));
   assert.deepEqual(markers(),[],'hiding the layer hides its markers');
@@ -279,11 +278,54 @@ test('photo events: a named set is saved in the browser, Add to map shows it, ph
   field('#photo-event-name','ตลิ่งพัง');pick('a.jpg');await submit();await settle();
   await act(async()=>{(document.querySelector('[aria-label="แสดงชุด ตลิ่งพัง บนแผนที่"]') as HTMLButtonElement).click();});await settle();
   assert.deepEqual(eventLayers(),['My Photos/ตลิ่งพัง','My Photos/น้ำท่วมสะพาน']);
-  assert.equal(registry.getSnapshot().layers.at(-1)?.id,'public-photos');
   await act(async()=>{(document.querySelector('[aria-label="ลบชุด ตลิ่งพัง"]') as HTMLButtonElement).click();});await settle();
   await act(async()=>{(document.querySelector('[aria-label="ลบชุด น้ำท่วมสะพาน"]') as HTMLButtonElement).click();});await settle();
   assert.deepEqual(eventLayers(),[],'deleting a set removes its layer');
   const after=await rt.storage.photos.loadPhotos('u8');
   assert.deepEqual([after.events.length,after.photos.length],[0,2],'deleting a set keeps its photos');
  }finally{URL.createObjectURL=createObjectURL;URL.revokeObjectURL=revokeObjectURL}
+});
+test('public photo sets: search lists sets first, Add to map makes one layer per set, remembered in the browser',async()=>{
+ const {photoTool}=await import('../src/ui/plugins/photo.js');
+ const id1='11111111-1111-4111-8111-111111111111',id2='22222222-2222-4222-8222-222222222222';
+ const set=(id:string,eventName:string)=>({id,eventName,tags:['share2026-10-27','flood'],username:'Alice',appName:'ThaiWater GIS',createdAt:1,photoCount:1,capturedFrom:'2026-10-18T09:30:45',capturedTo:'2026-10-18T09:30:45',bbox:[100,13,100,13],url:`/share/${id}`});
+ const requests:string[]=[];let removed=false;
+ const client=createPublicClient({fetch:async url=>{const path=String(url);requests.push(path);
+  if(path.startsWith('/api/public/photo-shares'))return Response.json({sets:[set(id1,'น้ำท่วมสะพาน'),set(id2,'ตลิ่งพัง')],hasMore:false});
+  const match=/^\/api\/photo-shares\/([^/?]+)$/.exec(path);
+  if(match){if(removed&&match[1]===id2)return Response.json({error:'ไม่พบข้อมูล'},{status:404});const name=match[1]===id1?'น้ำท่วมสะพาน':'ตลิ่งพัง';return Response.json({id:match[1],eventName:name,tags:['flood'],username:'Alice',photos:[{id:`p-${match[1]}`,name:`${name}.jpg`,longitude:100,latitude:13,capturedAt:'2026-10-18T09:30:45',capturedOffset:'+07:00',url:`/api/photo-shares/${match[1]}/photos/p`,caption:'ระดับน้ำสูง'}]});}
+  return Response.json({photos:[],hasMore:false});}});
+ const rt:ToolboxRuntime={appId:'sets',storage:createBrowserStorage(`sets-${++counter}`),client};
+ localStorage.clear();
+ const {map,named}=fakeMap(),registry=createLayerRegistry([],'MEMBER');
+ const markers=()=>[...document.querySelectorAll('button[aria-label^="ดูภาพ "]')].map(button=>button.getAttribute('aria-label'));
+ const titles=()=>registry.getSnapshot().layers.filter(layer=>layer.id.startsWith('public-photos/')).map(layer=>layer.title);
+ const view=()=>h(ui.ToolboxProvider,{runtime:rt,registry,user:{id:'u10',accessLevel:'MEMBER'},map,plugins:[dataFilesTool(),photoTool(),drawTool()]},h(ToolboxPanel),h(ToolOverlays),h(ToolDialogs));
+ await render(view());
+ assert.equal(document.querySelector('#public-photos-layer'),null,'no Public Photos switch');
+ assert.deepEqual(titles(),[]);
+ click('#toolbox-public-photos-settings');await settle();
+ assert.match(requests.find(url=>url.startsWith('/api/public/photo-shares'))!,/offset=0&limit=20$/,'the newest sets are listed when the search opens');
+ assert.deepEqual([...document.querySelectorAll('article[aria-label]')].map(item=>item.getAttribute('aria-label')),['น้ำท่วมสะพาน','ตลิ่งพัง']);
+ assert.deepEqual(titles(),[],'searching adds nothing to the map');
+ await act(async()=>{(document.querySelector('[aria-label="Add to map ชุด น้ำท่วมสะพาน"]') as HTMLButtonElement).click();});await settle();
+ await act(async()=>{(document.querySelector('[aria-label="Add to map ชุด ตลิ่งพัง"]') as HTMLButtonElement).click();});await settle();
+ assert.deepEqual(titles(),['Public Photos/ตลิ่งพัง','Public Photos/น้ำท่วมสะพาน'],'one layer per set, newest added on top');
+ assert.deepEqual(registry.getSnapshot().layers.map(layer=>layer.owner?.key),['files','public','set','set','mine','public'],'photo layers stay in the Photo block, between Data Files and Draw');
+ assert.deepEqual(markers().sort(),['ดูภาพ ตลิ่งพัง.jpg','ดูภาพ น้ำท่วมสะพาน.jpg']);
+ assert.deepEqual(named('fitBounds').at(-1),['fitBounds',[[100,13],[100,13]]]);
+ assert.match(container.textContent??'',/Public Photos \(ชุดบนแผนที่ 2\)/);
+ act(()=>registry.setVisible(`public-photos/${id1}`,false));
+ assert.deepEqual(markers(),['ดูภาพ ตลิ่งพัง.jpg'],'the layer eye hides only its set');
+ click('[aria-label="ดูภาพ ตลิ่งพัง.jpg"]');
+ assert.match(document.body.textContent??'',/ระดับน้ำสูง/,'the popup shows the set photo and its caption');
+ assert.deepEqual(JSON.parse(localStorage.getItem('toolbox:sets:toolbox.photo:public-photo-sets:u10')!).map((item:{eventName:string})=>item.eventName),['ตลิ่งพัง','น้ำท่วมสะพาน']);
+ // After a reload the sets come back; one removed from the service leaves the list.
+ act(()=>root.unmount());root=createRoot(container);removed=true;
+ await render(view());await settle();
+ assert.deepEqual(titles(),['Public Photos/น้ำท่วมสะพาน']);
+ click('#toolbox-public-photos-settings');await settle();
+ click('[aria-label="เอาชุด น้ำท่วมสะพาน ออกจากแผนที่"]');await settle();
+ assert.deepEqual(titles(),[],'removing a set drops its layer');
+ assert.equal(localStorage.getItem('toolbox:sets:toolbox.photo:public-photo-sets:u10'),'[]');
 });

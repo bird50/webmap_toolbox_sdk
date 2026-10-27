@@ -11,19 +11,14 @@ import {DataFilesTool} from '../src/ui/tools/DataFilesTool.js';
 
 // Server rendering only: verifies markup, labels and state wiring of the current tool panels without a DOM.
 const base:LayerDefinition={id:'',title:'',description:'',group:'test',type:'GEOJSON',url:'local:test',visible:false,opacity:1,minZoom:0,maxZoom:24,accessLevel:'PUBLIC',color:'#dc2626',legend:'',popupFields:[]};
-const photo={onMyPhotoSettings(){},myPhotoSettingsOpen:false,count:3,eventsOnMap:1,publicVisible:true,onPublicVisible(){},publicStatus:{count:7,loading:false,error:'',hasMore:false},onPublicSettings(){},publicSettingsOpen:true,filterCount:2};
+const photo={onMyPhotoSettings(){},myPhotoSettingsOpen:false,count:3,eventsOnMap:1,publicSetsOnMap:2,onPublicSettings(){},publicSettingsOpen:true};
 
-test('PhotoTool shows counts, filter summary, dialog state and each public status',()=>{
+test('PhotoTool shows counts and dialog state, with settings buttons and no layer switches',()=>{
  const html=renderToStaticMarkup(h(PhotoTool,photo));
  assert.match(html,/My Photos <span[^>]*>\(ชุดบนแผนที่ 1 · รูป 3\)/);
- assert.doesNotMatch(html,/id="my-photos-layer"/,'no single My Photos layer switch');
- assert.match(html,/\(7\)/);
- assert.match(html,/ใช้เงื่อนไขค้นหา 2 รายการ/);
- assert.match(html,/aria-label="ตั้งค่า Public Photos"[^>]*aria-expanded="true"/);
- assert.match(renderToStaticMarkup(h(PhotoTool,{...photo,publicStatus:{...photo.publicStatus,loading:true}})),/กำลังโหลด Public Photos/);
- assert.match(renderToStaticMarkup(h(PhotoTool,{...photo,publicStatus:{count:0,loading:false,error:'เกิดข้อผิดพลาด',hasMore:false}})),/role="alert"[^>]*>เกิดข้อผิดพลาด/);
- assert.match(renderToStaticMarkup(h(PhotoTool,{...photo,publicStatus:{...photo.publicStatus,hasMore:true}})),/ซูมเข้า/);
- assert.match(renderToStaticMarkup(h(PhotoTool,{...photo,publicStatus:{...photo.publicStatus,count:0}})),/ไม่พบภาพ Public/);
+ assert.match(html,/Public Photos <span[^>]*>\(ชุดบนแผนที่ 2\)/);
+ assert.doesNotMatch(html,/role="switch"/,'no layer switches');
+ assert.match(html,/aria-label="ค้นหาชุดรูปภาพ Public และ Add to map"[^>]*aria-expanded="true"/);
 });
 test('DrawTool lists drawing layers with per-layer status and the toolbar switch',()=>{
  const layers=[{...base,id:'mine',title:'My Drawing',owner:{toolId:'draw',key:'mine'}},{...base,id:'shared',title:'Public Drawing',owner:{toolId:'draw',key:'public'}}];

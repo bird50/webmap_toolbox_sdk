@@ -1,19 +1,20 @@
 "use client";
 import {photoPluginTh} from "../messages/photoPlugin.js";
 import {useEffect,useMemo,useRef,type ComponentType} from "react";
-import {PhotoOverlay,type MapPhoto,type PublicPhotoStatus} from "../PhotoOverlay.js";
+import {PhotoOverlay,type MapPhoto} from "../PhotoOverlay.js";
 import type {LayerDefinition} from "../../core/layers.js";
+import type {LayerPlacement} from "../../core/registry.js";
 import type {GeotaggedPhoto} from "../../core/photo-gps.js";
-import {emptyPublicPhotoFilters,type PublicPhotoFilters} from "../../core/public-photo-query.js";
+import type {PublicPhotoSet} from "../../core/public-photo-sets.js";
 import type {PhotoEvent,StoredPhoto} from "../../storage/photo-storage.js";
 import {createPhotoStorage} from "../../storage/photo-storage.js";
 import {storageName} from "../../storage/names.js";
-import {useLayers,useMapAdapter,useToolId,useToolStorage,useToolDialog,useToolLayers,useToolText,useToolState,useToolUser} from "../context.js";
+import {useLayers,useMapAdapter,useToolbox,useToolId,useToolWorkspace,useToolStorage,useToolDialog,useToolLayers,useToolText,useToolState,useToolUser} from "../context.js";
 import {TOOL_API_VERSION,type ToolComponentProps,type ToolPlugin,type WebmapCapability} from "../contracts.js";
 import {PhotoSettings} from "../PhotoSettings.js";
-import {PublicPhotoSettings} from "../PublicPhotoSettings.js";
+import {PublicPhotoSettings,type PublicPhotoSetRef} from "../PublicPhotoSettings.js";
 import {PhotoTool} from "../tools/PhotoTool.js";
-import {baseLayer,ownedLayer,toolLayer,type ToolLayerOptions,type ToolPluginOptions} from "./shared.js";
+import {baseLayer,toolLayer,type ToolLayerOptions,type ToolPluginOptions} from "./shared.js";
 
 export const PHOTO_TOOL_ID="toolbox.photo";
 export type LocalPhoto=StoredPhoto&{url:string};
@@ -26,19 +27,26 @@ export function photosOnMap(photos:readonly LocalPhoto[],events:readonly PhotoEv
  const shown=new Set(events.filter(event=>event.onMap).flatMap(event=>event.photoIds));
  return photos.filter(photo=>shown.has(photo.id));
 }
-const loadingStatus:PublicPhotoStatus={count:0,loading:true,error:"",hasMore:false};
 /** Layer key shared by every event layer, so the host's layer gear opens the My Photos dialog. */
 export const PHOTO_EVENT_LAYER_KEY="event";
 /** Registry ID of the layer that draws one event set. */
 export const eventLayerId=(eventId:string)=>`my-photos/${eventId}`;
 export type PhotoEventLayer={layer:LayerDefinition;event:PhotoEvent;photos:MapPhoto[]};
+/** Layer key shared by every Public set layer, so the host's layer gear opens the Public search. */
+export const PUBLIC_PHOTO_SET_LAYER_KEY="set";
+/** Registry ID of the layer that draws one Public set. */
+export const publicSetLayerId=(shareId:string)=>`public-photos/${shareId}`;
+export type PublicPhotoSetActions={add:(set:PublicPhotoSet)=>Promise<void>;remove:(id:string)=>void};
+type PublicSetsStore={added:PublicPhotoSetRef[];photos:Readonly<Record<string,MapPhoto[]>>;ready:boolean;actions:PublicPhotoSetActions};
+const publicPending:PublicSetsStore={added:[],photos:{},ready:false,actions:{add:unavailable,remove:()=>{}}};
 
 /**
  * Shared state of the photo tool, for renderers in engine-specific entries: one entry per event layer in registry
- * order (`events`); a photo in several sets is drawn once, by the first visible layer.
+ * order (`events`, a photo in several sets is drawn once, by the first visible layer), one per Public set layer
+ * (`sets`), and both in registry order (`layers`).
  */
 export function usePhotoToolState(){
- const [store]=useToolState("photos",pending),[filters]=useToolState<PublicPhotoFilters>("filters",emptyPublicPhotoFilters),[,setStatus]=useToolState("status",loadingStatus);
+ const [store]=useToolState("photos",pending),[shared]=useToolState("public",publicPending);
  const layers=useToolLayers(),{visible}=useLayers();
  const events=useMemo(()=>{
   const drawn=new Set<string>(),result:PhotoEventLayer[]=[];
@@ -51,32 +59,102 @@ export function usePhotoToolState(){
   }
   return result;
  },[layers,visible,store.events,store.photos]);
- return {events,photos:photosOnMap(store.photos,store.events),filters,setStatus};
+ const sets=useMemo(()=>layers.filter(layer=>layer.owner?.key===PUBLIC_PHOTO_SET_LAYER_KEY).map(layer=>({layer,photos:shared.photos[layer.id]??[]})),[layers,shared.photos]);
+ const ordered=useMemo(()=>[...events,...sets].sort((a,b)=>layers.indexOf(a.layer)-layers.indexOf(b.layer)),[events,sets,layers]);
+ return {events,sets,layers:ordered,photos:photosOnMap(store.photos,store.events)};
 }
-type EventLayerTemplate=Omit<LayerDefinition,"id"|"owner"|"visible">;
-/** Keeps one owned layer per event added to the map, newest first, above the tool's other layers. */
-function useEventLayers(template:EventLayerTemplate|false,events:readonly PhotoEvent[],ready:boolean){
- const toolId=useToolId(),{registry}=useLayers();
- const prefix=template&&template.title;
+type LayerTemplate=Omit<LayerDefinition,"id"|"owner"|"visible">;
+/** Where a tool with no layers yet puts its first one: inside its own block, in Toolbox order among the tools' layers. */
+function blockPlacement(all:readonly LayerDefinition[],order:readonly string[],toolId:string):LayerPlacement{
+ const index=order.indexOf(toolId);
+ for(const id of order.slice(index+1)){const first=all.find(layer=>layer.owner?.toolId===id);if(first)return {before:first.id};}
+ for(const id of order.slice(0,Math.max(index,0)).reverse()){
+  const last=[...all].reverse().find(layer=>layer.owner?.toolId===id);
+  if(last){const next=all[all.indexOf(last)+1];return next?{before:next.id}:"end";}
+ }
+ return "start";
+}
+/**
+ * Keeps one owned layer per item under `key`, titled "<template title>/<name>". Items are newest first and new layers
+ * go above the existing ones of that key; the first ones go above the tool's other layers (`first`) or below them.
+ */
+function useOwnedLayers(key:string,template:LayerTemplate|false,items:readonly {id:string;name:string}[],ready:boolean,first:boolean){
+ const toolId=useToolId(),{registry}=useLayers(),{mounted}=useToolWorkspace();
+ const order=useMemo(()=>mounted.map(plugin=>plugin.id),[mounted]);
  useEffect(()=>{
   if(!template||!ready)return;
-  const owned=registry.getSnapshot().layers.filter(layer=>layer.owner?.toolId===toolId);
-  const wanted=new Map(events.filter(event=>event.onMap).map(event=>[eventLayerId(event.id),event]));
-  for(const layer of owned)if(layer.owner?.key===PHOTO_EVENT_LAYER_KEY&&!wanted.has(layer.id))registry.unregister(layer.id);
-  const kept=registry.getSnapshot().layers.filter(layer=>layer.owner?.toolId===toolId);
-  const missing=[...wanted].filter(([id])=>!kept.some(layer=>layer.id===id)).map(([id,event]):LayerDefinition=>({...template,id,title:`${prefix}/${event.name}`,legend:event.name,visible:true,owner:{toolId,key:PHOTO_EVENT_LAYER_KEY}}));
-  // Events are newest first and new layers go above the existing ones, so the list matches the dialog's order.
-  const above=kept.find(layer=>layer.owner?.key===PHOTO_EVENT_LAYER_KEY)??kept[0];
-  if(missing.length)registry.registerOwned(toolId,missing,above?{before:above.id}:"start");
- },[template,prefix,events,ready,registry,toolId]);
+  const wanted=new Map(items.map(item=>[item.id,item.name]));
+  for(const layer of registry.getSnapshot().layers)if(layer.owner?.toolId===toolId&&layer.owner.key===key&&!wanted.has(layer.id))registry.unregister(layer.id);
+  const all=registry.getSnapshot().layers,owned=all.filter(layer=>layer.owner?.toolId===toolId);
+  const missing=[...wanted].filter(([id])=>!owned.some(layer=>layer.id===id)).map(([id,name]):LayerDefinition=>({...template,id,title:`${template.title}/${name}`,legend:name,visible:true,owner:{toolId,key}}));
+  if(!missing.length)return;
+  const same=owned.find(layer=>layer.owner?.key===key);
+  const after=owned.length?all[all.indexOf(owned.at(-1)!)+1]:undefined;
+  registry.registerOwned(toolId,missing,same?{before:same.id}:!owned.length?blockPlacement(all,order,toolId):first?{before:owned[0].id}:after?{before:after.id}:"end");
+ },[key,template,items,ready,first,registry,toolId,order]);
+}
+const storedSets=(key:string):PublicPhotoSetRef[]=>{
+ try{const value=JSON.parse(localStorage.getItem(key)??"[]");return Array.isArray(value)?value.filter(item=>typeof item?.id==="string"&&typeof item?.eventName==="string").slice(0,50):[];}catch{return [];}
+};
+const saveSets=(key:string,sets:readonly PublicPhotoSetRef[])=>{try{localStorage.setItem(key,JSON.stringify(sets));}catch{/* the sets stay for this visit only */}};
+/**
+ * Public sets added to the map: remembered in this browser per app and user (IDs and names only), their photos read
+ * through the gateway (`GET photoShares/<id>`); a set removed from the service leaves the list.
+ */
+function usePublicSets(template:LayerTemplate|false){
+ const {client,appId}=useToolbox(),toolId=useToolId(),userId=useToolUser().id,{registry}=useLayers(),map=useMapAdapter();
+ const [store,setStore]=useToolState("public",publicPending);
+ const storageKey=`toolbox:${appId}:${toolId}:public-photo-sets:${userId}`;
+ const latest=useRef({registry,map,store});latest.current={registry,map,store};
+ const items=useMemo(()=>store.added.map(set=>({id:publicSetLayerId(set.id),name:set.eventName})),[store.added]);
+ useOwnedLayers(PUBLIC_PHOTO_SET_LAYER_KEY,template,items,store.ready,false);
+ useEffect(()=>{
+  let cancelled=false;
+  async function load(id:string){
+   const response=await client.request("photoShares",{cache:"no-store"},undefined,id);
+   if(response.status===404)return null;
+   if(!response.ok)throw new Error("Public set unavailable");
+   const share=await response.json() as {eventName:string;tags:string[];username?:string;photos:MapPhoto[]};
+   return share.photos.map(photo=>({...photo,url:client.url(photo.url),shareUrl:client.url(`/share/${id}`),eventName:share.eventName,tags:share.tags,username:share.username}));
+  }
+  const fit=(photos:readonly MapPhoto[])=>{if(!photos.length)return;const lngs=photos.map(photo=>photo.longitude),lats=photos.map(photo=>photo.latitude);try{latest.current.map?.fitBounds([[Math.min(...lngs),Math.min(...lats)],[Math.max(...lngs),Math.max(...lats)]]);}catch{/* keep the current view */}};
+  const actions:PublicPhotoSetActions={
+   async add(set){
+    const layerId=publicSetLayerId(set.id);
+    const current=latest.current.store;
+    // Already on the map: show it again if hidden and zoom to it.
+    if(current.added.some(item=>item.id===set.id)){latest.current.registry.setVisible(layerId,true);fit(current.photos[layerId]??[]);return;}
+    const photos=await load(set.id);if(!photos)throw new Error("Public set removed");
+    setStore(value=>{const added=[{id:set.id,eventName:set.eventName},...value.added.filter(item=>item.id!==set.id)];saveSets(storageKey,added);return {...value,added,photos:{...value.photos,[layerId]:photos}};});
+    fit(photos);
+   },
+   remove(id){setStore(value=>{const added=value.added.filter(item=>item.id!==id);saveSets(storageKey,added);const photos={...value.photos};delete photos[publicSetLayerId(id)];return {...value,added,photos};});},
+  };
+  const added=storedSets(storageKey);
+  setStore({added,photos:{},ready:true,actions});
+  void (async()=>{
+   for(const set of added){
+    try{
+     const photos=await load(set.id);if(cancelled)return;
+     setStore(value=>{
+      if(photos)return {...value,photos:{...value.photos,[publicSetLayerId(set.id)]:photos}};
+      const remaining=value.added.filter(item=>item.id!==set.id);saveSets(storageKey,remaining);return {...value,added:remaining};
+     });
+    }catch{/* service unavailable: keep the layer, without photos, until the next visit */}
+   }
+  })();
+  return ()=>{cancelled=true;};
+ },[client,storageKey,setStore]);
 }
 /** Restores My Photos from browser storage every minute and when the tab becomes visible; owns their object URLs. */
-function Controller({template}:{template:EventLayerTemplate|false}){
+function Controller({template,publicTemplate}:{template:LayerTemplate|false;publicTemplate:LayerTemplate|false}){
  const storage=useToolStorage("photos",appId=>createPhotoStorage(storageName(appId,"photo"))),userId=useToolUser().id;
  const [store,setStore]=useToolState("photos",pending);
  const {registry}=useLayers(),map=useMapAdapter();
  const t=useToolText("photoPlugin",photoPluginTh);
- useEventLayers(template,store.events,store.ready);
+ const eventItems=useMemo(()=>store.events.filter(event=>event.onMap).map(event=>({id:eventLayerId(event.id),name:event.name})),[store.events]);
+ useOwnedLayers(PHOTO_EVENT_LAYER_KEY,template,eventItems,store.ready,true);
+ usePublicSets(publicTemplate);
  const latest=useRef({registry,map,t,photos:()=>store.photos});latest.current={registry,map,t,photos:()=>store.photos};
  useEffect(()=>{
   let cancelled=false;const urls=new Set<string>();
@@ -127,38 +205,46 @@ function Controller({template}:{template:EventLayerTemplate|false}){
  return null;
 }
 function Panel(){
- const layers=useToolLayers(),shared=ownedLayer(layers,"public");
- const {visible,registry}=useLayers();
- const [store]=useToolState("photos",pending),[filters]=useToolState<PublicPhotoFilters>("filters",emptyPublicPhotoFilters),[status]=useToolState("status",loadingStatus);
+ const layers=useToolLayers();
+ const [store]=useToolState("photos",pending);
  const photos=useToolDialog("photos"),publicSettings=useToolDialog("public");
- return <PhotoTool count={store.photos.length} eventsOnMap={layers.filter(layer=>layer.owner?.key===PHOTO_EVENT_LAYER_KEY).length} onMyPhotoSettings={()=>photos.show()} myPhotoSettingsOpen={photos.open} publicVisible={!!shared&&!!visible[shared.id]} onPublicVisible={value=>{if(shared)registry.setVisible(shared.id,value);}} publicStatus={status} onPublicSettings={trigger=>publicSettings.show(trigger)} publicSettingsOpen={publicSettings.open} filterCount={Object.values(filters).filter(Boolean).length}/>;
+ const count=(key:string)=>layers.filter(layer=>layer.owner?.key===key).length;
+ return <PhotoTool count={store.photos.length} eventsOnMap={count(PHOTO_EVENT_LAYER_KEY)} onMyPhotoSettings={()=>photos.show()} myPhotoSettingsOpen={photos.open} publicSetsOnMap={count(PUBLIC_PHOTO_SET_LAYER_KEY)} onPublicSettings={trigger=>publicSettings.show(trigger)} publicSettingsOpen={publicSettings.open}/>;
 }
 function Dialogs(){
- const shared=ownedLayer(useToolLayers(),"public"),{registry}=useLayers();
- const [store]=useToolState("photos",pending),[filters,setFilters]=useToolState<PublicPhotoFilters>("filters",emptyPublicPhotoFilters);
+ const [store]=useToolState("photos",pending),[shared]=useToolState("public",publicPending);
  const photos=useToolDialog("photos"),publicSettings=useToolDialog("public");
  return <>
   <PhotoSettings open={photos.open} onOpenChange={photos.setOpen} onAdd={store.add} storageReady={store.ready} storageMessage={store.message} savedPhotos={store.photos} events={store.events} eventActions={store.actions}/>
-  <PublicPhotoSettings open={publicSettings.open} onOpenChange={publicSettings.setOpen} filters={filters} returnFocusRef={publicSettings.returnFocus} onApply={next=>{setFilters({...next});if(shared)registry.setVisible(shared.id,true);}}/>
+  <PublicPhotoSettings open={publicSettings.open} onOpenChange={publicSettings.setOpen} returnFocusRef={publicSettings.returnFocus} added={shared.added} onAdd={shared.actions.add} onRemove={shared.actions.remove}/>
  </>;
 }
-/** `mine` is the template of the event layers ("My Photos/<event name>"); `false` turns them off. */
+/**
+ * `mine` is the template of the My Photos event layers ("My Photos/<event name>") and `shared` of the Public set layers
+ * ("Public Photos/<set name>"); `false` turns either off.
+ */
 export type PhotoToolOptions=ToolPluginOptions&{mine?:ToolLayerOptions;shared?:ToolLayerOptions};
 /** Engine-neutral markers and popup positioned through `MapAdapter.project`. */
 function Overlay(){
- const layers=useToolLayers(),{visible,opacity}=useLayers(),{events,filters,setStatus}=usePhotoToolState();
- return <PhotoOverlay events={events} shared={ownedLayer(layers,"public")} visible={visible} opacity={opacity} publicFilters={filters} onPublicStatus={setStatus}/>;
+ const {visible,opacity}=useLayers(),{layers}=usePhotoToolState();
+ return <PhotoOverlay layers={layers} visible={visible} opacity={opacity}/>;
 }
-/** My Photos (browser, 15 days; one layer per event set added to the map) and Public Photos (viewport queries through the gateway); `createPhotoTool` swaps the map renderer. */
+/**
+ * My Photos (browser, 15 days; one layer per event set added to the map) and Public Photos (sets found by search, one
+ * layer per set added to the map); `createPhotoTool` swaps the map renderer.
+ */
 export function photoTool(options?:PhotoToolOptions):ToolPlugin{return createPhotoTool(Overlay,["map.viewport","map.project","map.events"],options);}
+const template=(layer:LayerDefinition|undefined):LayerTemplate|false=>{
+ if(!layer)return false;
+ const {id:_id,owner:_owner,visible:_visible,...rest}=layer;void _id;void _owner;void _visible;return rest;
+};
 /** Photo tool with a custom map renderer; the renderer reads shared state through `usePhotoToolState`. */
 export function createPhotoTool(Overlay:ComponentType<ToolComponentProps>,requires:readonly WebmapCapability[],{id=PHOTO_TOOL_ID,title="Photo",accessLevel="MEMBER",mine,shared}:PhotoToolOptions={}):ToolPlugin{
- const [eventTemplate]=toolLayer(id,PHOTO_EVENT_LAYER_KEY,{...baseLayer,id:"my-photos",title:"My Photos",description:"ภาพในชุดเหตุการณ์ที่เก็บบนเบราว์เซอร์นี้",group:"ข้อมูลของฉัน",url:"local:my-photos",visible:true,color:"#8b5cf6",legend:"My Photos",popupFields:["name","caption"]},mine);
- const template:EventLayerTemplate|false=eventTemplate?(({id:_id,owner:_owner,visible:_visible,...rest})=>{void _id;void _owner;void _visible;return rest;})(eventTemplate):false;
- const PhotoController=()=><Controller template={template}/>;
- return {id,title,version:"3.0.0",apiVersion:TOOL_API_VERSION,accessLevel,requires,
-  layers:[
-   ...toolLayer(id,"public",{...baseLayer,id:"public-photos",title:"Public Photos",description:"ภาพเหตุการณ์ที่เผยแพร่สาธารณะในพื้นที่แผนที่",group:"ภาพถ่ายสาธารณะ",type:"REST_API",url:"/api/public/photos",accessLevel:"PUBLIC",color:"#0284c7",legend:"Public Photos",popupFields:["eventName","username","name","capturedAt","tags"]},shared),
-  ],
-  layerSettings:{public:"public",[PHOTO_EVENT_LAYER_KEY]:"photos"},Controller:PhotoController,Panel,Overlay,Dialogs};
+ const [eventLayer]=toolLayer(id,PHOTO_EVENT_LAYER_KEY,{...baseLayer,id:"my-photos",title:"My Photos",description:"ภาพในชุดเหตุการณ์ที่เก็บบนเบราว์เซอร์นี้",group:"ข้อมูลของฉัน",url:"local:my-photos",visible:true,color:"#8b5cf6",legend:"My Photos",popupFields:["name","caption"]},mine);
+ const [setLayer]=toolLayer(id,PUBLIC_PHOTO_SET_LAYER_KEY,{...baseLayer,id:"public-photos",title:"Public Photos",description:"ชุดรูปภาพที่แชร์สาธารณะ เพิ่มจากการค้นหาชุดรูปภาพ",group:"ภาพถ่ายสาธารณะ",type:"REST_API",url:"/api/public/photo-shares",accessLevel:"PUBLIC",color:"#0284c7",legend:"Public Photos",popupFields:["eventName","username","name","capturedAt","tags","caption"]},shared);
+ const events=template(eventLayer),sets=template(setLayer);
+ // Layers are registered at runtime, one per set on the map; the plugin declares none up front.
+ const PhotoController=()=><Controller template={events} publicTemplate={sets}/>;
+ return {id,title,version:"4.0.0",apiVersion:TOOL_API_VERSION,accessLevel,requires,layers:[],
+  layerSettings:{[PHOTO_EVENT_LAYER_KEY]:"photos",[PUBLIC_PHOTO_SET_LAYER_KEY]:"public"},Controller:PhotoController,Panel,Overlay,Dialogs};
 }

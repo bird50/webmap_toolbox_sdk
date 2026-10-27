@@ -6,6 +6,7 @@ export * from './client.js';
 export * from './drawing-contract.js';
 export * from './photo-share.js';
 export * from './public-photo-query.js';
+export * from './public-photo-sets.js';
 export * from './data-table.js';
 export * from './data-file-share.js';
 export * from './share-tags.js';
