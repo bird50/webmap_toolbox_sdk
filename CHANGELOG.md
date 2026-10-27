@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.11.0
+
+Data Files works like Photo and Draw.
+
+- A file is chosen into a named set in **จัดการ My Data Files** (`DataFilesSettings`): file, name (required; defaults to the file name), description and tags. **Save ชุดข้อมูล** stores it and adds its layer `my-data-files/<setId>` "My Data Files/<name>", zooming to it. There is no single My Data Files layer or switch any more.
+- Per set: **+ Add to map**, **− Remove from map**, **จัดการชุดข้อมูล** (name, description, tags, and optionally a new file that replaces its data), **Save to Public** once (name, description, tags, features) and delete. The host − button (`useLayerRemove`) works for both kinds of data file layers.
+- **Public Data Files** has no viewport layer or switch: its settings button opens **ค้นหาชุดข้อมูล Public** (`PublicDataFilesSettings`; name, username, tag, publication dates, AND, 20 per page); **Add to map** reads the set (`GET /api/data-file-shares/<id>`) and adds `public-data-files/<shareId>` "Public Data Files/<name>", remembered in localStorage.
+- Each data file layer is a Data Panel source with Thai headers for the set columns (text group `dataFilesData`); popups keep `data_file`/`file_description` and `share_*`.
+- Storage: `StoredDataFile` gains `tags`, `onMap` and `share`; the store takes `{update:{id,patch}}` and an optional `id`/`onMap`/`tags` on add, and returns sets newest first. Files saved before 1.11 become sets that are off the map (no database upgrade).
+- Contracts: new `core/public-data-file-sets` (`publicDataFileSetQuery`, `publicDataFileSet`, `publicDataFileSetResponse`, `publicDataFileShare`), shared with Toolbox Service 1.7. The Public set filters and `publishedRange` moved to `core/share-tags` (`publicSetFilters`, `emptyPublicSetFilters`), used by drawing and data file sets. `PublicClient` gets the `dataFileSets` path.
+- Breaking for direct component users: `DataFilesTool` props changed (`setCount`, `setsOnMap`, `onSets`, `setsOpen`, optional `publicSetsOnMap`/`onPublic`/`publicOpen`); `DataFilesSettings` and `PublicDataFilesSettings` props changed; `useDataFiles` no longer returns merged `data`; `DataFileShare`, `usePublicDataFiles` and the text group `dataFileShare` are removed. Data Files plugin version 3.0.0, with layer keys `file` and `public`.
+
 ## 1.10.0
 
 Draw works like Photo.

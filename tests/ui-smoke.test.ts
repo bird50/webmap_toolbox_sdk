@@ -31,7 +31,12 @@ test('DrawTool shows the toolbar switch, the draft and set counts, and settings 
  assert.equal((html.match(/role="switch"/g)??[]).length,1,'only the toolbar switch');
 });
 test('DataFilesTool renders its state from props only',()=>{
- assert.match(renderToStaticMarkup(h(DataFilesTool,{dataFilesCount:5,dataFilesOpen:false,onDataFilesSettings(){},dataFilesVisible:false,onDataFilesVisible(){}})),/Layer My Data Files \(5\)/);
+ const html=renderToStaticMarkup(h(DataFilesTool,{setCount:5,setsOnMap:2,onSets(){},setsOpen:false,publicSetsOnMap:1,onPublic(){},publicOpen:true}));
+ assert.match(html,/My Data Files <span[^>]*>\(ชุดบนแผนที่ 2 · ชุด 5\)/);
+ assert.match(html,/Public Data Files <span[^>]*>\(ชุดบนแผนที่ 1\)/);
+ assert.match(html,/aria-label="ค้นหาชุดข้อมูล Public และ Add to map"[^>]*aria-expanded="true"/);
+ assert.equal((html.match(/role="switch"/g)??[]).length,0,'no layer switches');
+ assert.doesNotMatch(renderToStaticMarkup(h(DataFilesTool,{setCount:0,setsOnMap:0,onSets(){},setsOpen:false})),/Public Data Files/,'Public search is optional');
 });
 test('LayerPanel reflects registry visibility/opacity/order; WorkspacePanels keeps three labelled slots',()=>{
  const registry=createLayerRegistry([{...base,id:'one',title:'หนึ่ง',visible:true,opacity:.4},{...base,id:'two',title:'สอง'}]);

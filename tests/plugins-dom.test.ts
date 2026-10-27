@@ -38,39 +38,44 @@ async function render(node:ReturnType<typeof h>){container=document.createElemen
 const click=(selector:string)=>act(()=>{(document.querySelector(selector) as HTMLElement).click();});
 afterEach(()=>{act(()=>root.unmount());container.remove();document.body.innerHTML='';});
 
-test('data files: restores stored files, draws them through the GeoJSON surface and follows the registry',async()=>{
+test('data files: restores sets on the map as their own layers, draws them through the GeoJSON surface and follows the registry',async()=>{
  const rt=runtime(),{map,named}=fakeMap();
- await rt.storage.files('u1',{add:{name:'stations.geojson',description:'',data:{type:'FeatureCollection',features:[{type:'Feature',properties:{name:'a'},geometry:{type:'Point',coordinates:[100,13]}}]}}});
+ const point={type:'FeatureCollection' as const,features:[{type:'Feature' as const,properties:{name:'a'},geometry:{type:'Point' as const,coordinates:[100,13]}}]};
+ await rt.storage.files('u1',{add:{id:'f1',name:'stations',description:'',onMap:true,data:point}});
+ await rt.storage.files('u1',{add:{id:'f2',name:'off map',description:'',data:point}});
  const registry=createLayerRegistry([layer('basins')],'MEMBER');
- await render(h(ui.ToolboxProvider,{runtime:rt,registry,user:{id:'u1',accessLevel:'MEMBER'},map,plugins:[dataFilesTool()]},h(ToolboxPanel),h(ToolOverlays),h(ToolDialogs)));
- assert.deepEqual(registry.getSnapshot().layers.map(l=>[l.id,l.owner?.key]),[['basins',undefined],['my-data-files','files'],['public-data-files','public']]);
+ function HostRemove({layerId}:{layerId:string}){const remove=ui.useLayerRemove(layerId);return remove?h('button',{id:'host-remove',onClick:remove},'−'):null;}
+ await render(h(ui.ToolboxProvider,{runtime:rt,registry,user:{id:'u1',accessLevel:'MEMBER'},map,plugins:[dataFilesTool()]},h(ToolboxPanel),h(ToolOverlays),h(ToolDialogs),h(HostRemove,{layerId:'my-data-files/f1'})));
+ assert.deepEqual(registry.getSnapshot().layers.map(l=>[l.id,l.title,l.owner?.key]),[['my-data-files/f1','My Data Files/stations','file'],['basins','basins',undefined]],'only sets on the map get a layer, above host layers');
  const setOf=(id:string)=>named('set').filter(call=>call[1]===id).at(-1)!,visibleOf=(id:string)=>named('setVisible').filter(call=>call[1]===id).at(-1);
- assert.match(container.textContent??'',/Layer My Data Files \(1\)/);
- const last=setOf('my-data-files');
- assert.equal(last[1],'my-data-files');assert.equal((last[2] as {features:unknown[]}).features.length,1);
+ assert.match(container.textContent??'',/My Data Files \(ชุดบนแผนที่ 1 · ชุด 2\)/);
+ assert.equal(document.querySelector('#my-data-files-visible'),null,'no layer switch in the Toolbox');
+ const last=setOf('my-data-files/f1');
+ assert.equal((last[2] as {features:{properties:Record<string,unknown>}[]}).features[0].properties.data_file,'stations');
  assert.deepEqual(last[3],{kind:'mixed',color:'#f59e0b',opacity:1,minZoom:0,maxZoom:24});
- assert.deepEqual(visibleOf('my-data-files'),['setVisible','my-data-files',false]);
- assert.deepEqual(named('order').at(-1),['order',['basins','my-data-files','public-data-files']]);
- click('#my-data-files-visible');
- assert.equal(registry.getSnapshot().visible['my-data-files'],true);
- assert.deepEqual(visibleOf('my-data-files'),['setVisible','my-data-files',true]);
- act(()=>registry.setOpacity('my-data-files',.4));
- assert.equal((setOf('my-data-files')[3] as {opacity:number}).opacity,.4);
- act(()=>root.unmount());root=createRoot(container);
- assert.ok(named('remove').some(call=>call[1]==='my-data-files'));
- assert.deepEqual(registry.getSnapshot().layers.map(l=>l.id),['basins']);
+ assert.deepEqual(visibleOf('my-data-files/f1'),['setVisible','my-data-files/f1',true]);
+ assert.deepEqual(named('order').at(-1),['order',['my-data-files/f1','basins']]);
+ act(()=>registry.setVisible('my-data-files/f1',false));
+ assert.deepEqual(visibleOf('my-data-files/f1'),['setVisible','my-data-files/f1',false]);
+ act(()=>registry.setOpacity('my-data-files/f1',.4));
+ assert.equal((setOf('my-data-files/f1')[3] as {opacity:number}).opacity,.4);
+ click('#host-remove');await settle();
+ assert.deepEqual(registry.getSnapshot().layers.map(l=>l.id),['basins'],'the host − button takes the set off the map');
+ assert.ok(named('remove').some(call=>call[1]==='my-data-files/f1'));
+ assert.equal((await rt.storage.files('u1')).find(file=>file.id==='f1')?.onMap,false,'the set stays, off the map');
 });
 test('tool dialogs are exclusive across tools and reachable from a host Layer Panel through layerSettings',async()=>{
  const {map}=fakeMap(),registry=createLayerRegistry([],'MEMBER');
  function HostSettings({layerId}:{layerId:string}){const settings=ui.useLayerSettings(layerId);return settings?h('button',{id:`settings-${layerId}`,'aria-expanded':settings.open,onClick:(event:{currentTarget:HTMLElement})=>settings.show(event.currentTarget)},'⚙'):h('span',{id:`none-${layerId}`});}
- const photo=createPhotoTool(()=>null,[]);
- await render(h(ui.ToolboxProvider,{runtime:runtime(),registry,user:{id:'u2',accessLevel:'MEMBER'},map,plugins:[dataFilesTool(),photo]},h(HostSettings,{layerId:'my-data-files'}),h(HostSettings,{layerId:'basins'}),h(ToolboxPanel),h(ToolDialogs)));
+ const photo=createPhotoTool(()=>null,[]),rt=runtime();
+ await rt.storage.files('u2',{add:{id:'f1',name:'a',description:'',onMap:true,data:{type:'FeatureCollection',features:[{type:'Feature',properties:{},geometry:{type:'Point',coordinates:[100,13]}}]}}});
+ await render(h(ui.ToolboxProvider,{runtime:rt,registry,user:{id:'u2',accessLevel:'MEMBER'},map,plugins:[dataFilesTool(),photo]},h(HostSettings,{layerId:'my-data-files/f1'}),h(HostSettings,{layerId:'basins'}),h(ToolboxPanel),h(ToolDialogs)));
  assert.ok(document.querySelector('#none-basins'),'layers without declared settings get no button');
  click('#toolbox-public-photos-settings');
  assert.equal(document.querySelector('#toolbox-public-photos-settings')?.getAttribute('aria-expanded'),'true');
  click('#toolbox-data-files-settings');
  assert.equal(document.querySelector('#toolbox-public-photos-settings')?.getAttribute('aria-expanded'),'false');
- assert.equal(document.querySelector('#settings-my-data-files')?.getAttribute('aria-expanded'),'true');
+ assert.equal(document.querySelector('#settings-my-data-files\\/f1')?.getAttribute('aria-expanded'),'true');
  click('#toolbox-my-photos-settings');
  assert.equal(document.querySelector('#toolbox-data-files-settings')?.getAttribute('aria-expanded'),'false');
  assert.equal(document.querySelector('#toolbox-my-photos-settings')?.getAttribute('aria-expanded'),'true');
@@ -208,7 +213,7 @@ test('messages override one string per group and keep the rest',async()=>{
  const {map}=fakeMap();
  await render(h(ui.ToolboxProvider,{runtime:runtime(),registry:createLayerRegistry([],'MEMBER'),user:{id:'u7',accessLevel:'MEMBER'},map,plugins:[dataFilesTool()],messages:{dataFilesTool:{title:'Data files'}}},h(ToolboxPanel)));
  assert.match(container.textContent??'',/Data files/);
- assert.match(container.textContent??'',/Layer My Data Files \(0\)/);
+ assert.match(container.textContent??'',/My Data Files \(ชุดบนแผนที่ 0 · ชุด 0\)/);
 });
 test('tool entries work without configured storage: each tool opens its own default database',async()=>{
  const {dataFilesTool:filesFromEntry}=await import('../src/tools/data-files.js');
@@ -217,11 +222,11 @@ test('tool entries work without configured storage: each tool opens its own defa
  const {map}=fakeMap();
  const bare={appId:'entry-only',client:createPublicClient()} as ToolboxRuntime;
  await render(h(ui.ToolboxProvider,{runtime:bare,registry:createLayerRegistry([],'MEMBER'),user:{id:'u8',accessLevel:'MEMBER'},map,plugins:[filesFromEntry()]},h(ToolboxPanel)));
- assert.match(container.textContent??'',/Layer My Data Files \(1\)/);
+ assert.match(container.textContent??'',/My Data Files \(ชุดบนแผนที่ 0 · ชุด 1\)/);
 });
 test('data panel: lists sources of visible layers, searches, locates rows and summarises a column',async()=>{
  const rt=runtime(),{map,named}=fakeMap();
- await rt.storage.files('u9',{add:{name:'gauges.csv',description:'',data:{type:'FeatureCollection',features:[{type:'Feature',properties:{name:'g1',level:'1.5'},geometry:{type:'Point',coordinates:[100,13]}},{type:'Feature',properties:{name:'g2',level:'3.5'},geometry:{type:'Point',coordinates:[101,14]}}]}}});
+ await rt.storage.files('u9',{add:{id:'g',name:'gauges.csv',description:'',onMap:true,data:{type:'FeatureCollection',features:[{type:'Feature',properties:{name:'g1',level:'1.5'},geometry:{type:'Point',coordinates:[100,13]}},{type:'Feature',properties:{name:'g2',level:'3.5'},geometry:{type:'Point',coordinates:[101,14]}}]}}});
  const registry=createLayerRegistry([layer('basins',{title:'Basins'}),layer('hidden',{visible:false})],'MEMBER');
  const basins=[{type:'Feature' as const,properties:{name:'Ping',area:10},geometry:{type:'Polygon' as const,coordinates:[[[98,18],[99,18],[99,19],[98,18]]]}}];
  function HostSources(){
@@ -230,13 +235,14 @@ test('data panel: lists sources of visible layers, searches, locates rows and su
   return null;
  }
  await render(h(ui.ToolboxProvider,{runtime:rt,registry,user:{id:'u9',accessLevel:'MEMBER'},map,plugins:[dataFilesTool()],toolLayers:'start'},h(HostSources),h(DataPanel)));
+ act(()=>registry.setVisible('my-data-files/g',false));
  const tabs=()=>[...document.querySelectorAll('[role=tab]')].map(tab=>tab.textContent);
- assert.deepEqual(tabs(),['Basins1'],'only visible layers; data files layer starts hidden');
+ assert.deepEqual(tabs(),['Basins1'],'only visible layers');
  assert.ok([...document.querySelectorAll('th')].some(th=>th.textContent==='ชื่อ'),'labels become headers');
  click('[aria-label="ดู Ping บนแผนที่"]');
  assert.deepEqual(named('fitBounds').at(-1),['fitBounds',[[98,18],[99,19]]]);
- act(()=>registry.setVisible('my-data-files',true));
- assert.deepEqual(tabs(),['My Data Files2','Basins1'],'tool layers first, like the registry');
+ act(()=>registry.setVisible('my-data-files/g',true));
+ assert.deepEqual(tabs(),['My Data Files/gauges.csv2','Basins1'],'tool layers first, like the registry');
  click('[role=tab]');
  assert.equal(document.querySelectorAll('tbody tr').length,2);
  const search=document.querySelector('input[type=search]') as HTMLInputElement;
@@ -247,43 +253,74 @@ test('data panel: lists sources of visible layers, searches, locates rows and su
  click('[aria-pressed=false]');
  assert.match(container.textContent??'',/1 ค่า · ต่ำสุด 3.5/,'chart summarises the filtered rows, numeric column first');
 });
-test('data files: Save & Share Public posts one file with its fields, Public Data Files follows the view and filters',async()=>{
- const requests:{url:string;init?:RequestInit}[]=[];
- const feature={type:'Feature',properties:{name:'g1',level:'1.5',share_name:'จุดวัด',share_tags:'share2026-10-26, survey'},geometry:{type:'Point',coordinates:[100,13]}};
- const client=createPublicClient({fetch:async(url,init)=>{requests.push({url:String(url),init});return String(url).startsWith('/api/data-file-shares')?Response.json({id:'s1',count:1,tags:['share2026-10-26','survey']},{status:201}):Response.json({features:[feature],hasMore:false});}});
- const rt:ToolboxRuntime={appId:'share',storage:createBrowserStorage(`share-${++counter}`),client};
- await rt.storage.files!('u7',{add:{name:'gauges.csv',description:'ระดับน้ำ',data:{type:'FeatureCollection',features:[{type:'Feature',properties:{name:'g1'},geometry:{type:'Point',coordinates:[100,13]}}]}}});
+test('data files: a file is saved as a named set with its own layer; sets are managed, saved to Public and found by search',async()=>{
+ const shareId='44444444-4444-4444-8444-444444444444';
+ const posted:{name:string;description:string;tags:string[];data:{features:{properties:Record<string,unknown>}[]}}[]=[];
+ const requests:string[]=[];
+ const client=createPublicClient({fetch:async(url,init)=>{const path=String(url);requests.push(path);
+  if(path==='/api/data-file-shares'&&init?.method==='POST'){posted.push(JSON.parse(String(init.body)));return Response.json({id:shareId,count:2,tags:['share2026-10-27','survey']},{status:201});}
+  if(path.startsWith('/api/public/data-file-shares'))return Response.json({sets:[{id:shareId,name:'จุดวัด Public',description:'ระดับน้ำ',tags:['share2026-10-27'],username:'anonymous',appName:'ThaiWater GIS',createdAt:Date.now(),featureCount:1,bbox:[101,14,101,14]}],hasMore:false});
+  if(path===`/api/data-file-shares/${shareId}`)return Response.json({id:shareId,name:'จุดวัด Public',description:'ระดับน้ำ',tags:['share2026-10-27'],username:'anonymous',appName:'ThaiWater GIS',createdAt:1,data:{type:'FeatureCollection',features:[{type:'Feature',properties:{name:'p1'},geometry:{type:'Point',coordinates:[101,14]}}]}});
+  return Response.json({},{status:404});}});
+ const rt:ToolboxRuntime={appId:'files',storage:createBrowserStorage(`files-${++counter}`),client};
+ localStorage.clear();
  const {map,named}=fakeMap(),registry=createLayerRegistry([],'MEMBER');
- await render(h(ui.ToolboxProvider,{runtime:rt,registry,user:{id:'u7',accessLevel:'MEMBER'},map,plugins:[dataFilesTool()]},h(ToolboxPanel),h(ToolOverlays),h(ToolDialogs)));
- assert.equal(requests.length,0,'nothing is fetched while Public Data Files is hidden');
- click('#toolbox-data-files-settings');
- click('[aria-label="Share Public: gauges.csv"]');
+ const titles=()=>registry.getSnapshot().layers.map(layer=>layer.title);
  const field=(selector:string,value:string)=>act(()=>{const input=document.querySelector(selector) as HTMLInputElement;Object.getOwnPropertyDescriptor(Object.getPrototypeOf(input),'value')!.set!.call(input,value);input.dispatchEvent(new Event('input',{bubbles:true}));});
- const form=document.querySelector('form[aria-label="บันทึกเพื่อแชร์ Public"]')!;
- assert.equal((form.querySelector('input') as HTMLInputElement).value,'gauges','name defaults to the file name');
- assert.equal((form.querySelector('textarea') as HTMLTextAreaElement).value,'ระดับน้ำ','description defaults to the file description');
- field('form[aria-label="บันทึกเพื่อแชร์ Public"] input[maxlength="510"]','survey, ระดับน้ำ');
- await act(async()=>{(form.querySelector('button:not([type=button])') as HTMLButtonElement).click();});await settle();
- const posted=requests.find(request=>request.url==='/api/data-file-shares')!;
- assert.equal(posted.init?.method,'POST');
- const body=JSON.parse(String(posted.init?.body));
- assert.deepEqual([body.name,body.description,body.tags,body.data.features.length],['gauges','ระดับน้ำ',['survey','ระดับน้ำ'],1]);
- assert.equal(body.data.features[0].properties.data_file,undefined,'the stored file is sent, not the merged layer rows');
- assert.match(container.ownerDocument.body.textContent??'',/บันทึก Public แล้ว 1 รายการ/);
- // The view loader debounces by 250 ms.
- const debounce=()=>act(async()=>{await new Promise(resolve=>setTimeout(resolve,300));});
- click('#public-data-files-visible');await debounce();await settle();
- const loaded=requests.filter(request=>request.url.startsWith('/api/public/data-files'));
- assert.match(loaded.at(-1)!.url,/bbox=99%2C12%2C101%2C14&limit=500/);
- const drawn=named('set').filter(call=>call[1]==='public-data-files').at(-1)!;
- assert.equal((drawn[2] as {features:unknown[]}).features.length,1);
- assert.deepEqual(named('setVisible').filter(call=>call[1]==='public-data-files').at(-1),['setVisible','public-data-files',true]);
- assert.match(container.textContent??'',/1 รายการ Public ในพื้นที่นี้/);
- click('#toolbox-public-data-files-settings');
- field('#public-data-files-tag','survey');
- await act(async()=>{(document.querySelector('#public-data-files-tag')!.closest('form')!.querySelector('button:not([type=button])') as HTMLButtonElement).click();});await debounce();await settle();
- assert.match(requests.filter(request=>request.url.startsWith('/api/public/data-files')).at(-1)!.url,/&tag=survey$/);
- assert.match(container.textContent??'',/ใช้เงื่อนไขค้นหา 1 ข้อ/);
+ const choose=(selector:string,file:File)=>act(()=>{const input=document.querySelector(selector) as HTMLInputElement;Object.defineProperty(input,'files',{value:[file],configurable:true});input.dispatchEvent(new Event('change',{bubbles:true}));});
+ const press=(label:string)=>act(async()=>{(document.querySelector(`[aria-label="${label}"]`) as HTMLButtonElement).click();});
+ const submit=(selector:string)=>act(async()=>{(document.querySelector(selector)!.closest('form')!.querySelector('button:not([type=button])') as HTMLButtonElement).click();});
+ await render(h(ui.ToolboxProvider,{runtime:rt,registry,user:{id:'u7',accessLevel:'MEMBER'},map,plugins:[dataFilesTool()]},h(ToolboxPanel),h(ToolOverlays),h(ToolDialogs),h(DataPanel)));
+ assert.deepEqual(titles(),[],'no static Data Files layers');
+ assert.equal(requests.length,0,'nothing is fetched before a search');
+ click('#toolbox-data-files-settings');await settle();
+ await submit('#data-file-name');await settle();
+ assert.match(document.body.textContent??'',/กรุณาเลือกไฟล์/,'a file is required');
+ choose('#data-file-input',new File(['name,lat,lon,level\ng1,13,100,1.5\ng2,14,101,3.5\n'],'gauges.csv',{type:'text/csv'}));
+ assert.equal((document.querySelector('#data-file-name') as HTMLInputElement).value,'gauges','the set is named after the file');
+ field('#data-file-name','');
+ await submit('#data-file-name');await settle();
+ assert.match(document.body.textContent??'',/กรุณาระบุชื่อชุดข้อมูล/,'the set name is required');
+ field('#data-file-name','จุดวัดระดับน้ำ');field('#data-file-description','สำรวจเดือนตุลาคม');field('#data-file-tags','survey, ระดับน้ำ');
+ await submit('#data-file-name');await settle();
+ assert.deepEqual(titles(),['My Data Files/จุดวัดระดับน้ำ'],'the saved set becomes its own layer');
+ assert.deepEqual(named('fitBounds').at(-1),['fitBounds',[[100,13],[101,14]]],'the map zooms to the new set');
+ const [stored]=await rt.storage.files('u7');
+ assert.deepEqual([stored.name,stored.description,stored.tags,stored.onMap,stored.data.features.length],['จุดวัดระดับน้ำ','สำรวจเดือนตุลาคม',['survey','ระดับน้ำ'],true,2]);
+ // Data Panel rows carry the set name; headers come from the tool's labels.
+ const tabs=()=>[...document.querySelectorAll('[role=tab]')].map(tab=>tab.textContent);
+ assert.ok(tabs().some(tab=>tab?.startsWith('My Data Files/จุดวัดระดับน้ำ')));
+ assert.deepEqual([...document.querySelectorAll('th')].map(th=>th.textContent).slice(0,3),['ชุดข้อมูล','คำอธิบายชุด','ชื่อ']);
+ // Manage the set.
+ await press('Remove from map ชุด จุดวัดระดับน้ำ');await settle();
+ assert.deepEqual(titles(),[],'Remove from map drops the layer');
+ await press('Add to map ชุด จุดวัดระดับน้ำ');await settle();
+ assert.deepEqual(titles(),['My Data Files/จุดวัดระดับน้ำ']);
+ click('[aria-label="จัดการชุดข้อมูล จุดวัดระดับน้ำ"]');
+ field(`#data-file-name-${stored.id}`,'จุดวัดหลัก');
+ await submit(`#data-file-name-${stored.id}`);await settle();
+ assert.deepEqual(titles(),['My Data Files/จุดวัดหลัก'],'renaming retitles the layer');
+ await press('Save to Public ชุด จุดวัดหลัก');await settle();
+ assert.deepEqual(posted.map(body=>[body.name,body.description,body.tags,body.data.features.length]),[['จุดวัดหลัก','สำรวจเดือนตุลาคม',['survey','ระดับน้ำ'],2]]);
+ assert.equal(posted[0].data.features[0].properties.data_file,undefined,'the stored file is sent, not the layer rows');
+ assert.equal(document.querySelector('[aria-label="Save to Public ชุด จุดวัดหลัก"]'),null,'a saved set is not uploaded twice');
+ assert.deepEqual((await rt.storage.files('u7'))[0].share?.id,shareId);
+ // Public search: sets first, Add to map makes "Public Data Files/<name>", remembered in the browser.
+ click('#toolbox-public-data-files-settings');await settle();
+ assert.match(requests.find(url=>url.startsWith('/api/public/data-file-shares'))!,/offset=0&limit=20$/);
+ assert.equal(document.querySelectorAll('article[aria-label="จุดวัด Public"]').length,1);
+ await press('Add to map ชุด จุดวัด Public');await settle();
+ assert.deepEqual(titles(),['My Data Files/จุดวัดหลัก','Public Data Files/จุดวัด Public']);
+ const drawn=named('set').filter(call=>call[1]===`public-data-files/${shareId}`).at(-1)!;
+ assert.equal((drawn[2] as {features:{properties:Record<string,unknown>}[]}).features[0].properties.share_name,'จุดวัด Public');
+ assert.deepEqual(JSON.parse(localStorage.getItem('toolbox:files:toolbox.data-files:public-data-file-sets:u7')!),[{id:shareId,name:'จุดวัด Public'}]);
+ await press('Remove from map ชุด จุดวัด Public');await settle();
+ assert.deepEqual(titles(),['My Data Files/จุดวัดหลัก']);
+ // Deleting the set removes it and its layer.
+ click('#toolbox-data-files-settings');
+ await press('ลบชุด จุดวัดหลัก');await settle();
+ assert.deepEqual(await rt.storage.files('u7'),[]);
+ assert.deepEqual(titles(),[]);
 });
 /** A minimal JPEG carrying only EXIF GPS (whole degrees) and a capture date, enough for readPhotoGps. */
 function gpsJpeg(name:string,longitude:number,latitude:number){
@@ -414,7 +451,7 @@ test('public photo sets: search lists sets first, Add to map makes one layer per
  await act(async()=>{(document.querySelector('[aria-label="Add to map ชุด น้ำท่วมสะพาน"]') as HTMLButtonElement).click();});await settle();
  await act(async()=>{(document.querySelector('[aria-label="Add to map ชุด ตลิ่งพัง"]') as HTMLButtonElement).click();});await settle();
  assert.deepEqual(titles(),['Public Photos/ตลิ่งพัง','Public Photos/น้ำท่วมสะพาน'],'one layer per set, newest added on top');
- assert.deepEqual(registry.getSnapshot().layers.map(layer=>layer.owner?.key),['files','public','set','set'],'photo layers stay in the Photo block, after Data Files');
+ assert.deepEqual(registry.getSnapshot().layers.map(layer=>layer.owner?.key),['set','set'],'only sets on the map have layers');
  assert.deepEqual(markers().sort(),['ดูภาพ ตลิ่งพัง.jpg','ดูภาพ น้ำท่วมสะพาน.jpg']);
  assert.deepEqual(named('fitBounds').at(-1),['fitBounds',[[100,13],[100,13]]]);
  assert.match(container.textContent??'',/Public Photos \(ชุดบนแผนที่ 2\)/);

@@ -1,18 +1,18 @@
 "use client";
 import {dataFilesTh} from "./messages/dataFiles.js";
-import {useCallback,useEffect,useMemo,useRef,useState} from "react";
-import type {FeatureCollection} from "geojson";
-import type {StoredDataFile} from "../storage/data-file-storage.js";
+import {useCallback,useEffect,useRef,useState} from "react";
+import type {DataFileChange,StoredDataFile} from "../storage/data-file-storage.js";
 import {useToolStorage,useToolText} from "./context.js";
 import {createDataFileStorage} from "../storage/data-file-storage.js";
 import {storageName} from "../storage/names.js";
+/** Data file sets of `userId` in this browser, newest first; `refresh(change)` applies a change and returns the sets. */
 export function useDataFiles(userId:string){
  const dataFileTransaction=useToolStorage("files",appId=>createDataFileStorage(storageName(appId,"files")));
  const [files,setFiles]=useState<StoredDataFile[]>([]);const [ready,setReady]=useState(false);const [error,setError]=useState("");const version=useRef(0);
  const t=useToolText("dataFiles",dataFilesTh);const messages=useRef(t);messages.current=t;
- const refresh=useCallback(async(change?:Parameters<typeof dataFileTransaction>[1])=>{
+ const refresh=useCallback(async(change?:DataFileChange)=>{
   const current=++version.current;
-  try{const saved=await dataFileTransaction(userId,change);if(current===version.current){setFiles(saved);setError("");setReady(true);}}
+  try{const saved=await dataFileTransaction(userId,change);if(current===version.current){setFiles(saved);setError("");setReady(true);}return saved;}
   catch(error){if(current===version.current)setError(error instanceof Error?error.message:messages.current.accessFailed);throw error;}
  },[userId,dataFileTransaction]);
  useEffect(()=>{
@@ -22,6 +22,5 @@ export function useDataFiles(userId:string){
   document.addEventListener("visibilitychange",focus);
   return ()=>{revision.current++;window.clearInterval(timer);document.removeEventListener("visibilitychange",focus);};
  },[refresh]);
- const data=useMemo<FeatureCollection>(()=>({type:"FeatureCollection",features:files.flatMap(file=>file.data.features.map(feature=>({...feature,properties:{...feature.properties,data_file:file.name,file_description:file.description}})))}),[files]);
- return {files,ready,error,data,refresh};
+ return {files,ready,error,refresh};
 }

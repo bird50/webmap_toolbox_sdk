@@ -10,4 +10,5 @@ export * from './public-photo-sets.js';
 export * from './public-drawing-sets.js';
 export * from './data-table.js';
 export * from './data-file-share.js';
+export * from './public-data-file-sets.js';
 export * from './share-tags.js';
