@@ -15,3 +15,4 @@ export {layerPanelTh,type LayerPanelMessages} from './messages/layerPanel.js';
 export {runtimeTh,type RuntimeMessages} from './messages/runtime.js';
 export type {ToolboxMessagesOverride} from './messages.js';
 export * from './plugins/shared.js';
+export * from './owned-layers.js';

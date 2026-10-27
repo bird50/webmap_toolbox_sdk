@@ -8,8 +8,10 @@ import {photoEventsTh} from "./messages/photoEvents.js";
 import {photoDataTh} from "./messages/photoData.js";
 import {drawingToolbarTh} from "./messages/drawingToolbar.js";
 import {drawingWorkspaceTh} from "./messages/drawingWorkspace.js";
-import {drawingShareTh} from "./messages/drawingShare.js";
-import {publicDrawingsTh} from "./messages/publicDrawings.js";
+import {drawingSetControlsTh} from "./messages/drawingSetControls.js";
+import {drawingSetsTh} from "./messages/drawingSets.js";
+import {publicDrawingSettingsTh} from "./messages/publicDrawingSettings.js";
+import {drawingDataTh} from "./messages/drawingData.js";
 import {drawToolTh} from "./messages/drawTool.js";
 import {dataFilesSettingsTh} from "./messages/dataFilesSettings.js";
 import {dataFilesToolTh} from "./messages/dataFilesTool.js";
@@ -32,7 +34,7 @@ import {useMemo} from "react";
 export const thMessages={
  ...runtimeTh,
  photoTool:photoToolTh,photoSettings:photoSettingsTh,publicPhotoSettings:publicPhotoSettingsTh,publicPhotoShare:publicPhotoShareTh,photoOverlay:photoOverlayTh,photoPlugin:photoPluginTh,photoEvents:photoEventsTh,photoData:photoDataTh,
- drawingToolbar:drawingToolbarTh,drawingWorkspace:drawingWorkspaceTh,drawingShare:drawingShareTh,publicDrawings:publicDrawingsTh,drawTool:drawToolTh,
+ drawingToolbar:drawingToolbarTh,drawingWorkspace:drawingWorkspaceTh,drawingSetControls:drawingSetControlsTh,drawingSets:drawingSetsTh,publicDrawingSettings:publicDrawingSettingsTh,drawingData:drawingDataTh,drawTool:drawToolTh,
  dataFilesSettings:dataFilesSettingsTh,dataFilesTool:dataFilesToolTh,dataFiles:dataFilesTh,dataFileShare:dataFileShareTh,publicDataFiles:publicDataFilesTh,navigation:navigationTh,layerPanel:layerPanelTh,dataPanel:dataPanelTh,
 };
 export type ToolboxMessages=typeof thMessages;

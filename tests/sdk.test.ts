@@ -58,3 +58,22 @@ test('photo events: owner-scoped, cleaned when photos expire, and v1 databases k
  const legacy=await createPhotoStorage('legacy-photos').loadPhotos('alice');
  assert.deepEqual(legacy.events.map(event=>[event.name,event.photoIds,event.onMap]),[[LEGACY_PHOTO_EVENT,['p1'],true]]);
 });
+test('drawing sets: owner-scoped CRUD, expiry, and a v1 draft becomes a set on the map',async()=>{
+ const {createDrawingStorage,LEGACY_DRAWING_SET}=await import('../src/storage/drawing-storage.js');
+ const drawing=(text:string)=>({id:crypto.randomUUID(),tool:'point' as const,points:[[100,13] as [number,number]],text,style:defaultDrawingStyle,boxWidth:200,boxHeight:100});
+ const store=createDrawingStorage('draw-sets');
+ const set=await store.saveSet('alice',{name:'คัน',tags:['x'],drawings:[drawing('a')]},1000);
+ assert.deepEqual([set.onMap,set.expiresAt],[false,1000+15*86400000]);
+ await assert.rejects(store.updateSet('bob',set.id,{onMap:true}),'others cannot change a set');
+ const updated=await store.updateSet('alice',set.id,{drawings:[drawing('a'),drawing('b')]},5000);
+ assert.deepEqual([updated.drawings.length,updated.expiresAt],[2,5000+15*86400000],'new drawings restart the 15 days');
+ await store.deleteSet('bob',set.id);
+ assert.equal((await store.loadSets('alice',6000)).length,1);
+ assert.equal((await store.loadSets('alice',5000+15*86400000)).length,0,'expired sets are deleted');
+ // A database created by SDK 1.x (version 1, one draft per user).
+ await new Promise<void>((resolve,reject)=>{const request=indexedDB.open('legacy-drawings',1);request.onupgradeneeded=()=>{request.result.createObjectStore('workspaces',{keyPath:'userId'}).add({userId:'alice',drawings:[drawing('old')],expiresAt:Date.now()+86400000});};request.onsuccess=()=>{request.result.close();resolve();};request.onerror=()=>reject(request.error);});
+ const legacy=createDrawingStorage('legacy-drawings');
+ const migrated=await legacy.loadSets('alice');
+ assert.deepEqual(migrated.map(item=>[item.name,item.drawings[0].text,item.onMap]),[[LEGACY_DRAWING_SET,'old',true]]);
+ assert.deepEqual((await legacy('alice')).drawings,[],'the draft moved into the set');
+});

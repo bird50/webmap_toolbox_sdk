@@ -1,17 +1,17 @@
 "use client";
 import {photoPluginTh} from "../messages/photoPlugin.js";
+import {layerTemplate as template,useOwnedLayers,type LayerTemplate} from "../owned-layers.js";
 import {photoDataTh} from "../messages/photoData.js";
 import {useCallback,useEffect,useMemo,useRef,type ComponentType} from "react";
 import type {Feature,Point} from "geojson";
 import {PhotoOverlay,type MapPhoto,type PhotoFocus} from "../PhotoOverlay.js";
 import type {LayerDefinition} from "../../core/layers.js";
-import type {LayerPlacement} from "../../core/registry.js";
 import type {GeotaggedPhoto} from "../../core/photo-gps.js";
 import type {PublicPhotoSet} from "../../core/public-photo-sets.js";
 import type {PhotoEvent,StoredPhoto} from "../../storage/photo-storage.js";
 import {createPhotoStorage} from "../../storage/photo-storage.js";
 import {storageName} from "../../storage/names.js";
-import {useDataSource,useLayerRemover,useLayers,useMapAdapter,useToolbox,useToolId,useToolWorkspace,useToolStorage,useToolDialog,useToolLayers,useToolText,useToolState,useToolUser} from "../context.js";
+import {useDataSource,useLayerRemover,useLayers,useMapAdapter,useToolbox,useToolId,useToolStorage,useToolDialog,useToolLayers,useToolText,useToolState,useToolUser} from "../context.js";
 import {TOOL_API_VERSION,type ToolComponentProps,type ToolPlugin,type WebmapCapability} from "../contracts.js";
 import {PhotoSettings} from "../PhotoSettings.js";
 import {PublicPhotoSettings,type PublicPhotoSetRef} from "../PublicPhotoSettings.js";
@@ -64,45 +64,6 @@ export function usePhotoToolState(){
  const sets=useMemo(()=>layers.filter(layer=>layer.owner?.key===PUBLIC_PHOTO_SET_LAYER_KEY).map(layer=>({layer,photos:shared.photos[layer.id]??[]})),[layers,shared.photos]);
  const ordered=useMemo(()=>[...events,...sets].sort((a,b)=>layers.indexOf(a.layer)-layers.indexOf(b.layer)),[events,sets,layers]);
  return {events,sets,layers:ordered,photos:photosOnMap(store.photos,store.events)};
-}
-type LayerTemplate=Omit<LayerDefinition,"id"|"owner"|"visible">;
-/** Where a tool with no layers yet puts its first one: inside its own block, in Toolbox order among the tools' layers. */
-function blockPlacement(all:readonly LayerDefinition[],order:readonly string[],toolId:string):LayerPlacement{
- const index=order.indexOf(toolId);
- for(const id of order.slice(index+1)){const first=all.find(layer=>layer.owner?.toolId===id);if(first)return {before:first.id};}
- for(const id of order.slice(0,Math.max(index,0)).reverse()){
-  const last=[...all].reverse().find(layer=>layer.owner?.toolId===id);
-  if(last){const next=all[all.indexOf(last)+1];return next?{before:next.id}:"end";}
- }
- return "start";
-}
-/**
- * Keeps one owned layer per item under `key`, titled "<template title>/<name>". Items are newest first and new layers
- * go above the existing ones of that key; the first ones go above the tool's other layers (`first`) or below them.
- */
-function useOwnedLayers(key:string,template:LayerTemplate|false,items:readonly {id:string;name:string}[],ready:boolean,first:boolean){
- const toolId=useToolId(),{registry}=useLayers(),{mounted}=useToolWorkspace();
- const order=useMemo(()=>mounted.map(plugin=>plugin.id),[mounted]);
- useEffect(()=>{
-  if(!template||!ready)return;
-  const wanted=new Map(items.map(item=>[item.id,item.name]));
-  for(const layer of registry.getSnapshot().layers)if(layer.owner?.toolId===toolId&&layer.owner.key===key&&!wanted.has(layer.id))registry.unregister(layer.id);
-  // A renamed set keeps its place, visibility and opacity under the new title.
-  for(const [id,name] of wanted){
-   const snapshot=registry.getSnapshot(),index=snapshot.layers.findIndex(layer=>layer.id===id),layer=snapshot.layers[index];
-   if(!layer||layer.title===`${template.title}/${name}`)continue;
-   const next=snapshot.layers[index+1],visible=snapshot.visible[id],opacity=snapshot.opacity[id];
-   registry.unregister(id);
-   registry.registerOwned(toolId,[{...layer,title:`${template.title}/${name}`,legend:name}],next?{before:next.id}:"end");
-   registry.update({visible:{[id]:visible},opacity:{[id]:opacity}});
-  }
-  const all=registry.getSnapshot().layers,owned=all.filter(layer=>layer.owner?.toolId===toolId);
-  const missing=[...wanted].filter(([id])=>!owned.some(layer=>layer.id===id)).map(([id,name]):LayerDefinition=>({...template,id,title:`${template.title}/${name}`,legend:name,visible:true,owner:{toolId,key}}));
-  if(!missing.length)return;
-  const same=owned.find(layer=>layer.owner?.key===key);
-  const after=owned.length?all[all.indexOf(owned.at(-1)!)+1]:undefined;
-  registry.registerOwned(toolId,missing,same?{before:same.id}:!owned.length?blockPlacement(all,order,toolId):first?{before:owned[0].id}:after?{before:after.id}:"end");
- },[key,template,items,ready,first,registry,toolId,order]);
 }
 const storedSets=(key:string):PublicPhotoSetRef[]=>{
  try{const value=JSON.parse(localStorage.getItem(key)??"[]");return Array.isArray(value)?value.filter(item=>typeof item?.id==="string"&&typeof item?.eventName==="string").slice(0,50):[];}catch{return [];}
@@ -284,10 +245,6 @@ function Overlay(){
  * layer per set added to the map); `createPhotoTool` swaps the map renderer.
  */
 export function photoTool(options?:PhotoToolOptions):ToolPlugin{return createPhotoTool(Overlay,["map.viewport","map.project","map.events"],options);}
-const template=(layer:LayerDefinition|undefined):LayerTemplate|false=>{
- if(!layer)return false;
- const {id:_id,owner:_owner,visible:_visible,...rest}=layer;void _id;void _owner;void _visible;return rest;
-};
 /** Photo tool with a custom map renderer; the renderer reads shared state through `usePhotoToolState`. */
 export function createPhotoTool(Overlay:ComponentType<ToolComponentProps>,requires:readonly WebmapCapability[],{id=PHOTO_TOOL_ID,title="Photo",accessLevel="MEMBER",mine,shared}:PhotoToolOptions={}):ToolPlugin{
  const [eventLayer]=toolLayer(id,PHOTO_EVENT_LAYER_KEY,{...baseLayer,id:"my-photos",title:"My Photos",description:"ภาพในชุดเหตุการณ์ที่เก็บบนเบราว์เซอร์นี้",group:"ข้อมูลของฉัน",url:"local:my-photos",visible:true,color:"#8b5cf6",legend:"My Photos",popupFields:["name","caption"]},mine);

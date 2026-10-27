@@ -5,16 +5,20 @@ import {useEffect,useRef,useState,type PointerEvent as ReactPointerEvent} from "
 import {createDrawingStorage} from "../storage/drawing-storage.js";
 import {storageName} from "../storage/names.js";
 import {useToolboxMap as useMap,useToolStorage,useToolText} from "./context.js";
-import {DrawingShareControls} from "./DrawingShareControls.js";
-import {usePublicDrawings} from "./usePublicDrawings.js";
+import {DrawingSetControls} from "./DrawingSetControls.js";
 import {DrawingToolbar} from "./DrawingToolbar.js";
 import {defaultDrawingStyle,dragTools,textTools,shapePoints,screenBounds,transformPoints,MAX_DRAWINGS,MAX_DRAWING_POINTS,type Coordinate,type Drawing,type DrawingStyle,type DrawTool} from "../core/drawing.js";
 import type {LayerDefinition} from "../core/layers.js";
 
 type Gesture={start:Coordinate;original?:Drawing;resize?:boolean;points:Coordinate[]};
 
-/** `mine` is the editable browser layer, `shared` the read-only public layer; either may be omitted. */
-export function DrawingWorkspace({open,onClose,mine,shared,visible,opacity,onEnsureVisible,onCount,userId}:{open:boolean;onClose:()=>void;mine?:LayerDefinition;shared?:LayerDefinition;visible:Record<string,boolean>;opacity:Record<string,number>;onEnsureVisible:()=>void;onCount:(count:number)=>void;userId:string}) {
+/** A set opened from "จัดการชุดรูปวาด" for editing on the canvas. */
+export type DrawingEdit={id:string;name:string;drawings:Drawing[]};
+/**
+ * The Drawing Toolbar's canvas, shown while the toolbar is open: a draft kept in this browser (saved automatically,
+ * then saved as a named set) or the set being edited. `layers` are drawn read-only (sets on the map, Public sets).
+ */
+export function DrawingWorkspace({open,onClose,layers,visible,opacity,onCount,userId,editing,onSaveSet,onSaveEdit,onCancelEdit}:{open:boolean;onClose:()=>void;layers:readonly {layer:LayerDefinition;drawings:readonly Drawing[]}[];visible:Readonly<Record<string,boolean>>;opacity:Readonly<Record<string,number>>;onCount:(count:number)=>void;userId:string;editing?:DrawingEdit|null;onSaveSet:(input:{name:string;tags:string[];drawings:Drawing[]})=>Promise<void>;onSaveEdit:(id:string,drawings:Drawing[])=>Promise<void>;onCancelEdit:()=>void}) {
   const {current:map}=useMap();
   const drawingStore=useToolStorage("drawings",appId=>createDrawingStorage(storageName(appId,"draw")));
   const t=useToolText("drawingWorkspace",drawingWorkspaceTh);
@@ -24,11 +28,7 @@ export function DrawingWorkspace({open,onClose,mine,shared,visible,opacity,onEns
   const [drawings,setDrawings]=useState<Drawing[]>([]);
   const [storageReady,setStorageReady]=useState(false);
   const [storageMessage,setStorageMessage]=useState(t.storageLoading);
-  useEffect(()=>{let cancelled=false;drawingStore(userId).then(result=>{if(!cancelled){setDrawings(result.drawings);setStorageReady(true);setStorageMessage(result.expiresAt?tRef.current.storedUntil(new Date(result.expiresAt).toLocaleDateString("th-TH")):tRef.current.storageEmpty);}}).catch(()=>{if(!cancelled){setStorageReady(true);setStorageMessage(tRef.current.storageReadFailed);}});return ()=>{cancelled=true;};},[userId,drawingStore]);
-  async function saveLocal(){try{const result=await drawingStore(userId,drawings);setStorageMessage(tRef.current.savedUntil(new Date(result.expiresAt!).toLocaleDateString("th-TH")));}catch{setStorageMessage(tRef.current.saveFailed);}}
-  const publicLayer=shared;
-  const publicVisible=!!publicLayer&&!!visible[publicLayer.id];
-  const publicData=usePublicDrawings(publicLayer,publicVisible);
+  const editingId=editing?.id,editingRef=useRef(editing);editingRef.current=editing;
   const [history,setHistory]=useState<Drawing[][]>([]);
   const [future,setFuture]=useState<Drawing[][]>([]);
   const [tool,setTool]=useState<DrawTool>("select");
@@ -39,8 +39,16 @@ export function DrawingWorkspace({open,onClose,mine,shared,visible,opacity,onEns
   const [preview,setPreview]=useState<Drawing|null>(null);
   const [message,setMessage]=useState("");
   const gesture=useRef<Gesture|null>(null);
-  const localLayer=mine;
-  const layerVisible=!!localLayer&&!!visible[localLayer.id]&&view.zoom>=localLayer.minZoom&&view.zoom<localLayer.maxZoom;
+  // The canvas holds the draft, or the set being edited; switching resets undo history.
+  useEffect(()=>{
+   let cancelled=false;setHistory([]);setFuture([]);setSelectedId(null);
+   const set=editingRef.current;
+   if(set){setDrawings(set.drawings);setStorageReady(true);setStorageMessage(tRef.current.editing(set.name));return;}
+   setStorageReady(false);
+   drawingStore(userId).then(result=>{if(!cancelled){setDrawings(result.drawings);setStorageReady(true);setStorageMessage(result.drawings.length?tRef.current.draftKept:tRef.current.storageEmpty);}}).catch(()=>{if(!cancelled){setStorageReady(true);setStorageMessage(tRef.current.storageReadFailed);}});
+   return ()=>{cancelled=true;};
+  },[userId,drawingStore,editingId]);
+  const layerVisible=open;
   const selected=layerVisible?drawings.find(d=>d.id===selectedId):undefined;
   const effectiveTool=open&&storageReady?tool:"pan";
   const capturing=effectiveTool!=="select"&&effectiveTool!=="pan"&&effectiveTool!=="eraser";
@@ -63,18 +71,20 @@ export function DrawingWorkspace({open,onClose,mine,shared,visible,opacity,onEns
   const project=(point:Coordinate):Coordinate=>{const p=map!.project(point);return [p.x,p.y];};
   const unproject=(point:Coordinate):Coordinate=>{const p=map!.unproject(point);return [((p.lng+180)%360+360)%360-180,Math.max(-85.051129,Math.min(85.051129,p.lat))];};
   function position(event:ReactPointerEvent):Coordinate {const bounds=svgRef.current!.getBoundingClientRect();return [event.clientX-bounds.left,event.clientY-bounds.top];}
-  function commit(next:Drawing[]) {if(!storageReady)return;setStorageMessage(t.unsaved);setHistory(old=>[...old,drawings].slice(-50));setFuture([]);setDrawings(next);}
+  // The draft is saved in this browser on every change; edits to a set wait for "บันทึกการแก้ไข".
+  function keep(next:Drawing[]){if(editing){setStorageMessage(t.unsaved);return;}drawingStore(userId,next).then(()=>setStorageMessage(t.draftKept)).catch(()=>setStorageMessage(t.saveFailed));}
+  function commit(next:Drawing[]) {if(!storageReady)return;setHistory(old=>[...old,drawings].slice(-50));setFuture([]);setDrawings(next);keep(next);}
   function cancel(){gesture.current=null;setDraft([]);setPreview(null);setMessage("");}
-  function undo(){cancel();if(!history.length)return;setFuture(old=>[drawings,...old]);setDrawings(history[history.length-1]);setHistory(old=>old.slice(0,-1));setSelectedId(null);}
-  function redo(){cancel();if(!future.length)return;setHistory(old=>[...old,drawings]);setDrawings(future[0]);setFuture(old=>old.slice(1));setSelectedId(null);}
+  function undo(){cancel();if(!history.length)return;const previous=history[history.length-1];setFuture(old=>[drawings,...old]);setDrawings(previous);keep(previous);setHistory(old=>old.slice(0,-1));setSelectedId(null);}
+  function redo(){cancel();if(!future.length)return;const next=future[0];setHistory(old=>[...old,drawings]);setDrawings(next);keep(next);setFuture(old=>old.slice(1));setSelectedId(null);}
   function remove(){if(selected){commit(drawings.filter(d=>d.id!==selected.id));setSelectedId(null);}}
   function create(points:Coordinate[]):Drawing {
     const number=1+drawings.filter(d=>d.tool==="number").reduce((max,d)=>Math.max(max,Number(d.text)||0),0);
     return {id:crypto.randomUUID(),tool,points,text:tool==="number"?String(number):text.trim(),style:{...style,background:tool==="sticky"?"#fef08a":style.background},boxWidth:tool==="number"?44:200,boxHeight:tool==="number"?44:tool==="label"?48:100};
   }
-  function add(drawing:Drawing){if(drawings.length>=MAX_DRAWINGS){setMessage(t.limit(MAX_DRAWINGS));return;}commit([...drawings,drawing]);onEnsureVisible();setMessage("");}
+  function add(drawing:Drawing){if(drawings.length>=MAX_DRAWINGS){setMessage(t.limit(MAX_DRAWINGS));return;}commit([...drawings,drawing]);setMessage("");}
   function finish(){if(canFinish){add(create(tool==="polygon"?[...draft,draft[0]]:draft));setDraft([]);setPreview(null);}}
-  function changeTool(next:DrawTool){cancel();setSelectedId(null);setTool(next);if(next!=="pan")onEnsureVisible();}
+  function changeTool(next:DrawTool){cancel();setSelectedId(null);setTool(next);}
   function changeStyle(next:DrawingStyle){if(selected)commit(drawings.map(d=>d.id===selected.id?{...d,style:next}:d));else setStyle(next);}
   function changeText(next:string){if(selected)commit(drawings.map(d=>d.id===selected.id?{...d,text:next}:d));else setText(next);}
 
@@ -185,11 +195,12 @@ export function DrawingWorkspace({open,onClose,mine,shared,visible,opacity,onEns
   }
   return <>
     <svg ref={svgRef} aria-label={t.canvas} className="absolute inset-0 z-10" width={view.width} height={view.height} style={{pointerEvents:capturing?"auto":"none",touchAction:effectiveTool==="pan"?"auto":"none",cursor:capturing?"crosshair":undefined}} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={()=>cancel()} onLostPointerCapture={()=>{if(gesture.current)cancel();}} onDoubleClick={event=>{if(capturing){event.stopPropagation();event.preventDefault();}}}>
-      {publicVisible&&<g opacity={publicLayer?opacity[publicLayer.id]??1:1}>{publicData.drawings.map(d=>renderDrawing(d,true))}</g>}
-      <g opacity={localLayer?opacity[localLayer.id]??1:1}>{layerVisible&&shown.map(d=>renderDrawing(d))}{open&&layerVisible&&preview&&!drawings.some(d=>d.id===preview.id)&&renderDrawing(preview,true)}{open&&layerVisible&&draft.length>0&&renderDrawing({...create(draft),id:"draft"},true)}</g>
+      {layers.map(({layer,drawings:items})=>visible[layer.id]&&<g key={layer.id} opacity={opacity[layer.id]??layer.opacity}>{items.map(d=>renderDrawing(d,true))}</g>)}
+      <g>{layerVisible&&shown.map(d=>renderDrawing(d))}{open&&layerVisible&&preview&&!drawings.some(d=>d.id===preview.id)&&renderDrawing(preview,true)}{open&&layerVisible&&draft.length>0&&renderDrawing({...create(draft),id:"draft"},true)}</g>
       {open&&layerVisible&&selectionBox()}
     </svg>
-    {publicVisible&&<p role={publicData.error?"alert":"status"} className="pointer-events-none absolute bottom-10 left-3 z-10 rounded bg-white/90 px-2 py-1 text-xs text-[color:var(--sdk-text-secondary,#334155)]">{publicData.message}</p>}
-    {open&&<DrawingToolbar tool={tool} onTool={changeTool} style={currentStyle} onStyle={changeStyle} text={currentText} onText={changeText} selected={!!selected} selectedTool={selected?.tool} selectedPoints={selection?.points} onDelete={remove} onClose={()=>{cancel();onClose();}} onFinish={finish} onCancel={cancel} canFinish={canFinish} hasDraft={draft.length>0} undo={undo} redo={redo} canUndo={history.length>0} canRedo={future.length>0} message={message} count={drawings.length}><DrawingShareControls drawings={drawings} selected={selected} ready={storageReady} onSave={saveLocal} storageMessage={storageMessage}/></DrawingToolbar>}
+    {open&&<DrawingToolbar tool={tool} onTool={changeTool} style={currentStyle} onStyle={changeStyle} text={currentText} onText={changeText} selected={!!selected} selectedTool={selected?.tool} selectedPoints={selection?.points} onDelete={remove} onClose={()=>{cancel();onClose();}} onFinish={finish} onCancel={cancel} canFinish={canFinish} hasDraft={draft.length>0} undo={undo} redo={redo} canUndo={history.length>0} canRedo={future.length>0} message={message} count={drawings.length}><DrawingSetControls key={editingId??"draft"} editing={editing??null} count={drawings.length} ready={storageReady} storageMessage={storageMessage}
+      onSave={async input=>{await onSaveSet({...input,drawings});setDrawings([]);setHistory([]);setFuture([]);setSelectedId(null);keep([]);}}
+      onSaveEdit={async()=>{if(editing)await onSaveEdit(editing.id,drawings);}} onCancelEdit={onCancelEdit}/></DrawingToolbar>}
   </>;
 }

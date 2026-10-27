@@ -20,14 +20,15 @@ test('PhotoTool shows counts and dialog state, with settings buttons and no laye
  assert.doesNotMatch(html,/role="switch"/,'no layer switches');
  assert.match(html,/aria-label="ค้นหาชุดรูปภาพ Public และ Add to map"[^>]*aria-expanded="true"/);
 });
-test('DrawTool lists drawing layers with per-layer status and the toolbar switch',()=>{
- const layers=[{...base,id:'mine',title:'My Drawing',owner:{toolId:'draw',key:'mine'}},{...base,id:'shared',title:'Public Drawing',owner:{toolId:'draw',key:'public'}}];
- const props={drawingLayers:layers,visible:{mine:true,shared:true},onDrawingVisible(){},drawingToolbarOpen:true,onDrawingToolbarChange(){},drawingCount:4};
+test('DrawTool shows the toolbar switch, the draft and set counts, and settings buttons only',()=>{
+ const props={drawingToolbarOpen:true,onDrawingToolbarChange(){},drawingCount:4,setCount:3,setsOnMap:2,publicSetsOnMap:1,onSets(){},setsOpen:false,onPublic(){},publicOpen:true};
  const html=renderToStaticMarkup(h(DrawTool,props));
  assert.match(html,/id="drawing-toolbar-toggle"[^>]*aria-checked="true"|aria-checked="true"[^>]*id="drawing-toolbar-toggle"/);
- assert.match(html,/4 วัตถุ/);
- assert.match(html,/โหลดรูปวาดสาธารณะ/);
- assert.match(renderToStaticMarkup(h(DrawTool,{...props,drawingCount:0})),/ยังไม่มี My Drawing/);
+ assert.match(html,/กระดาษร่าง 4 วัตถุ/);
+ assert.match(html,/My Drawing <span[^>]*>\(ชุดบนแผนที่ 2 · ชุด 3\)/);
+ assert.match(html,/Public Drawing <span[^>]*>\(ชุดบนแผนที่ 1\)/);
+ assert.match(html,/aria-label="ค้นหาชุดรูปวาด Public และ Add to map"[^>]*aria-expanded="true"/);
+ assert.equal((html.match(/role="switch"/g)??[]).length,1,'only the toolbar switch');
 });
 test('DataFilesTool renders its state from props only',()=>{
  assert.match(renderToStaticMarkup(h(DataFilesTool,{dataFilesCount:5,dataFilesOpen:false,onDataFilesSettings(){},dataFilesVisible:false,onDataFilesVisible(){}})),/Layer My Data Files \(5\)/);

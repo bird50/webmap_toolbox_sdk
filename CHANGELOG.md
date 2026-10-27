@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.10.0
+
+Draw works like Photo.
+
+- The Drawing Toolbar draws on a draft kept in this browser (saved automatically). **Save ชุดรูปวาด** (name required, tags) stores it as a named set, adds its layer `my-drawing/<setId>` "My Drawing/<name>" and clears the draft.
+- **จัดการ My Drawing** (the My Drawing settings button, `DrawingSets`): per set **+ Add to map**, **− Remove from map**, **จัดการชุดรูปวาด** (name, tags, "แก้ไขรูปวาดใน Drawing Toolbar" reopens its drawings on the canvas; **บันทึกการแก้ไข** saves them back), **Save to Public** once (name, tags, drawings) and delete.
+- **Public Drawing** has no viewport layer or switch: its settings button opens **ค้นหาชุดรูปวาด Public** (`PublicDrawingSettings`; name, username, tag, publication dates, AND, 20 per page); **Add to map** adds `public-drawing/<shareId>` "Public Drawing/<name>", remembered in localStorage; **Remove from map** takes it off.
+- Drawing layers are Data Panel sources (ประเภท, ข้อความ, ชุดรูปวาด; text group `drawingData`); a row zooms to its object. The host − button (`useLayerRemove`) works for both kinds of drawing layers.
+- Storage: IndexedDB version 2 adds a `sets` store (`loadSets`, `saveSet`, `updateSet`, `deleteSet` on the drawing store; `DrawingSet`). Upgrading moves each user's saved drawings into the set `LEGACY_DRAWING_SET` ("My Drawing เดิม"), on the map.
+- Contracts: `drawingShareSchema` takes `tags`; new `core/public-drawing-sets` (`publicDrawingSetQuery`, `publicDrawingSet`, `publicDrawingSetResponse`, `publicDrawingShare`, `publishedRange`), shared with Toolbox Service 1.6. `PublicClient` gets the `drawingSets` path.
+- `useOwnedLayers`, `blockPlacement` and `layerTemplate` moved to shared runtime (`/react/core`) for any tool that creates layers at runtime.
+- Breaking for direct component users: `DrawingWorkspace` takes `layers`, `editing`, `onSaveSet`, `onSaveEdit`, `onCancelEdit` (no `mine`/`shared`); `DrawTool` props changed; `DrawingShareControls`, `usePublicDrawings` and the text groups `drawingShare`/`publicDrawings` are removed (use `DrawingSetControls`, `DrawingSets`, `PublicDrawingSettings`). Draw plugin version 3.0.0.
+
 ## 1.9.0
 
 Apps bundle only the tools they use.
