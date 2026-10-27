@@ -42,6 +42,10 @@ test('photo events: owner-scoped, cleaned when photos expire, and v1 databases k
  const cleared=await storage.photos.setCaption('alice',c.id,' ');
  assert.equal('caption' in cleared,false,'an empty caption is removed');
  assert.equal(cleared.expiresAt,c.expiresAt,'editing keeps the expiry');
+ await storage.photos.deletePhotos('bob',[c.id]);
+ assert.ok((await storage.photos.loadPhotos('alice',6000)).photos.some(photo=>photo.id===c.id),'others cannot delete a photo');
+ await storage.photos.deletePhotos('alice',[c.id]);
+ assert.equal((await storage.photos.loadPhotos('alice',6000)).photos.some(photo=>photo.id===c.id),false);
  await assert.rejects(storage.photos.updateEvent('bob',event.id,{onMap:true}));
  assert.equal((await storage.photos.updateEvent('alice',event.id,{onMap:true})).onMap,true);
  await storage.photos.deleteEvent('bob',event.id);

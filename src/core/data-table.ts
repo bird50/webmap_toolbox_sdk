@@ -18,6 +18,8 @@ export type DataSource={
  error?:string;
  /** Short status shown above the table, e.g. that the rows are sample data. */
  note?:string;
+ /** Handles a row's locate button instead of the host's `onSelect` (e.g. a tool that zooms and opens its own popup). Keep it stable. */
+ select?:(feature:Feature)=>void;
 };
 export type ColumnSummary=
  |{kind:'number';count:number;min:number;max:number;mean:number;bins:{from:number;to:number;count:number}[]}

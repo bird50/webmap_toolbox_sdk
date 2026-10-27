@@ -3,7 +3,7 @@
 import {publicPhotoSettingsTh} from "./messages/publicPhotoSettings.js";
 import {useCallback,useEffect,useRef,useState,type RefObject} from "react";
 import {Dialog} from "radix-ui";
-import {Camera,Eye,MapPinned,RotateCcw,Search,Trash2,X} from "lucide-react";
+import {Camera,MapPinned,Minus,Plus,RotateCcw,Search,X} from "lucide-react";
 import {Button} from "./primitives/button.js";
 import {Input} from "./primitives/input.js";
 import {useToolbox,useToolText} from "./context.js";
@@ -53,7 +53,7 @@ export function PublicPhotoSettings({open,onOpenChange,returnFocusRef,added,onAd
       <div className="min-h-0 overflow-y-auto p-4">
         {added.length>0&&<section aria-labelledby="public-sets-on-map" className="mb-4 rounded-lg bg-[color:var(--sdk-info-soft,#f0f9ff)] p-3">
           <h3 id="public-sets-on-map" className="mb-1 flex items-center gap-2 text-xs font-semibold"><MapPinned className="size-4 text-[color:var(--sdk-info,#0284c7)]"/>{t.onMapTitle(added.length)}</h3>
-          {added.map(set=><div key={set.id} className="flex items-center gap-2 py-0.5 text-xs"><span className="min-w-0 flex-1 truncate">{set.eventName}</span><Button type="button" size="icon" variant="ghost" className="size-7" aria-label={t.remove(set.eventName)} title={t.removeHint} onClick={()=>onRemove(set.id)}><Trash2/></Button></div>)}
+          {added.map(set=><div key={set.id} className="flex items-center gap-2 py-0.5 text-xs"><span className="min-w-0 flex-1 truncate">{set.eventName}</span><Button type="button" size="icon" variant="ghost" className="size-7" aria-label={t.remove(set.eventName)} title={t.removeHint} onClick={()=>onRemove(set.id)}><Minus/></Button></div>)}
         </section>}
         <form className="space-y-3" onSubmit={event=>{
           event.preventDefault();const parsed=publicPhotoFilters.safeParse(draft);
@@ -75,8 +75,8 @@ export function PublicPhotoSettings({open,onOpenChange,returnFocusRef,added,onAd
           {set.tags.length>0&&<p className="mt-1 flex flex-wrap gap-1">{set.tags.map(tag=><span key={tag} className="rounded-full bg-[color:var(--sdk-surface-muted,#f1f5f9)] px-2 py-0.5 text-[10px] text-[color:var(--sdk-muted-strong,#475569)]">#{tag}</span>)}</p>}
           <p className="mt-1 text-[10px] leading-4 text-[color:var(--sdk-muted,#64748b)]">{t.meta(set.username,set.photoCount,set.capturedFrom?.slice(0,10)??"",set.capturedTo?.slice(0,10)??"")}</p>
           <div className="mt-2 flex flex-wrap items-center gap-2">
-            <Button type="button" size="sm" variant={shown?"outline":"default"} aria-label={t.addLabel(set.eventName)} title={shown?t.zoomHint:undefined} disabled={busy===set.id} onClick={()=>void add(set)}><Eye/>{busy===set.id?t.adding:t.add}</Button>
-            {shown&&<Button type="button" size="sm" variant="ghost" aria-label={t.remove(set.eventName)} onClick={()=>onRemove(set.id)}><Trash2/>{t.removeShort}</Button>}
+            <Button type="button" size="sm" variant={shown?"outline":"default"} aria-label={t.addLabel(set.eventName)} title={shown?t.zoomHint:undefined} disabled={busy===set.id} onClick={()=>void add(set)}><Plus/>{busy===set.id?t.adding:t.add}</Button>
+            {shown&&<Button type="button" size="sm" variant="outline" aria-label={t.remove(set.eventName)} title={t.removeHint} onClick={()=>onRemove(set.id)}><Minus/>{t.removeShort}</Button>}
             <a href={client.url(set.url)} target="_blank" rel="noopener noreferrer" className="text-[11px] text-[color:var(--sdk-info,#0284c7)] underline">{t.open}</a>
           </div>
         </article>;})}

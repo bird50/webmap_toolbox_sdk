@@ -107,6 +107,18 @@ async function setCaption(userId:string,id:string,caption:string):Promise<Stored
     tx.onerror=()=>{};
   });
 }
+/** Deletes the owner's photos with these IDs (others' are left alone). Events keep their lists; callers prune them. */
+async function deletePhotos(userId:string,ids:readonly string[]):Promise<void>{
+  if(!ids.length)return;
+  const db=await openDatabase();
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction("photos","readwrite"),store=tx.objectStore("photos");
+    for(const id of ids){const read=store.get(id);read.onsuccess=()=>{if((read.result as StoredPhoto|undefined)?.userId===userId)store.delete(id);};}
+    tx.oncomplete=()=>{db.close();resolve();};
+    tx.onabort=()=>{db.close();reject(tx.error??new Error("Storage transaction failed"));};
+    tx.onerror=()=>{};
+  });
+}
 async function eventTransaction<T>(run:(store:IDBObjectStore,done:(value:T)=>void,fail:(error:Error)=>void)=>void):Promise<T>{
   const db=await openDatabase();
   return new Promise((resolve,reject)=>{
@@ -122,8 +134,8 @@ function saveEvent(userId:string,input:{name:string;tags:string[];photoIds:strin
   const event:PhotoEvent={id:crypto.randomUUID(),userId,name:input.name,tags:[...input.tags],photoIds:[...new Set(input.photoIds)],onMap:false,createdAt:now};
   return eventTransaction((store,done)=>{store.add(event);done(event);});
 }
-/** Changes an event's photos or whether it is on the map, or records its Public save. Only the owner's events change. */
-function updateEvent(userId:string,id:string,patch:Partial<Pick<PhotoEvent,"onMap"|"share"|"photoIds">>):Promise<PhotoEvent>{
+/** Changes an event's name, tags, photos or whether it is on the map, or records its Public save. Only the owner's events change. */
+function updateEvent(userId:string,id:string,patch:Partial<Pick<PhotoEvent,"onMap"|"share"|"photoIds"|"name"|"tags">>):Promise<PhotoEvent>{
   return eventTransaction((store,done,fail)=>{
     const read=store.get(id);
     read.onsuccess=()=>{
@@ -141,7 +153,7 @@ function deleteEvent(userId:string,id:string):Promise<void>{
   });
 }
 
-return {loadPhotos,savePhotos,setCaption,saveEvent,updateEvent,deleteEvent};
+return {loadPhotos,savePhotos,setCaption,deletePhotos,saveEvent,updateEvent,deleteEvent};
 }
 
 /** @deprecated use formatExpiry from the storage entry. */

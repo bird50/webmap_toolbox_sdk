@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.7.0
+
+Photos go straight into event sets.
+
+- The My Photos dialog has no **Add to My Photos** step: the set form takes the event name (required), tags and the photos themselves (GPS read from EXIF, a caption each); **Save ชุดเหตุการณ์** stores the photos and the set together. Photos without GPS are shown and skipped.
+- **Add to map** (+ icon) and, while a set is on the map, **Remove from map** (− icon) in both the My Photos sets and the Public set search (which replaces its เอาออก button). Removing a My Photos set from the map keeps the set and its photos. **จัดการชุดรูปเหตุการณ์** (was เพิ่ม-ลบรูป / ข้อความ) edits the set's name and tags (`PhotoEventActions.setDetails`; the layer "My Photos/<name>" is retitled in place, keeping visibility and opacity), lists the set's own photos (untick to remove, edit captions) and takes new files.
+- Every visible photo layer (My Photos and Public sets) is a Data Panel source: one row per photo with ชื่อรูป, ข้อความประกอบ, วันที่ถ่าย, ชุดเหตุการณ์, แชร์โดย and แท็ก (text group `photoData`). Clicking a photo name zooms the map to it (zoom 16 or closer) and opens its popup. New optional `DataSource.select` lets a source handle the row's locate button instead of the host's `onSelect`; `PhotoOverlay` takes `focus` (`PhotoFocus`).
+- A photo left in no set is deleted from the browser: when its set is deleted or it is removed from a set (`storage.photos.deletePhotos`).
+- New `PhotoPicker` / `usePhotoPicks` (file input, GPS summary, previews, captions). `PhotoEvents` takes `onAdd` (and `storageReady`). `PhotoSettings` without `events`/`eventActions` keeps the 1.x Add to My Photos flow.
+
 ## 1.6.0
 
 Public Photos by set.

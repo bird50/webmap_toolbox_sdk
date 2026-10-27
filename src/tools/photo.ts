@@ -1,9 +1,10 @@
 "use client";
 /** Photo tool: plugin, UI, browser store and text defaults. Imports only shared runtime code, never another tool. */
 export {photoTool,createPhotoTool,usePhotoToolState,photosOnMap,eventLayerId,publicSetLayerId,PHOTO_EVENT_LAYER_KEY,PUBLIC_PHOTO_SET_LAYER_KEY,PHOTO_TOOL_ID,type PhotoEventLayer,type PublicPhotoSetActions,type PhotoToolOptions,type LocalPhoto,type PhotoEventActions} from '../ui/plugins/photo.js';
-export {PhotoOverlay,type MapPhoto} from '../ui/PhotoOverlay.js';
+export {PhotoOverlay,type MapPhoto,type PhotoFocus} from '../ui/PhotoOverlay.js';
 export {PhotoSettings} from '../ui/PhotoSettings.js';
 export {PublicPhotoSettings,type PublicPhotoSetRef} from '../ui/PublicPhotoSettings.js';
+export {PhotoPicker,usePhotoPicks,type PhotoPicks} from '../ui/PhotoPicker.js';
 export {PublicPhotoShare} from '../ui/PublicPhotoShare.js';
 export {PhotoEvents} from '../ui/PhotoEvents.js';
 export {PhotoTool,type PhotoToolProps} from '../ui/tools/PhotoTool.js';
@@ -16,3 +17,4 @@ export {publicPhotoShareTh} from '../ui/messages/publicPhotoShare.js';
 export {photoOverlayTh} from '../ui/messages/photoOverlay.js';
 export {photoPluginTh} from '../ui/messages/photoPlugin.js';
 export {photoEventsTh} from '../ui/messages/photoEvents.js';
+export {photoDataTh} from '../ui/messages/photoData.js';

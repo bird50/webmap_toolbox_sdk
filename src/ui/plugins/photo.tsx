@@ -1,7 +1,9 @@
 "use client";
 import {photoPluginTh} from "../messages/photoPlugin.js";
-import {useEffect,useMemo,useRef,type ComponentType} from "react";
-import {PhotoOverlay,type MapPhoto} from "../PhotoOverlay.js";
+import {photoDataTh} from "../messages/photoData.js";
+import {useCallback,useEffect,useMemo,useRef,type ComponentType} from "react";
+import type {Feature,Point} from "geojson";
+import {PhotoOverlay,type MapPhoto,type PhotoFocus} from "../PhotoOverlay.js";
 import type {LayerDefinition} from "../../core/layers.js";
 import type {LayerPlacement} from "../../core/registry.js";
 import type {GeotaggedPhoto} from "../../core/photo-gps.js";
@@ -9,7 +11,7 @@ import type {PublicPhotoSet} from "../../core/public-photo-sets.js";
 import type {PhotoEvent,StoredPhoto} from "../../storage/photo-storage.js";
 import {createPhotoStorage} from "../../storage/photo-storage.js";
 import {storageName} from "../../storage/names.js";
-import {useLayers,useMapAdapter,useToolbox,useToolId,useToolWorkspace,useToolStorage,useToolDialog,useToolLayers,useToolText,useToolState,useToolUser} from "../context.js";
+import {useDataSource,useLayers,useMapAdapter,useToolbox,useToolId,useToolWorkspace,useToolStorage,useToolDialog,useToolLayers,useToolText,useToolState,useToolUser} from "../context.js";
 import {TOOL_API_VERSION,type ToolComponentProps,type ToolPlugin,type WebmapCapability} from "../contracts.js";
 import {PhotoSettings} from "../PhotoSettings.js";
 import {PublicPhotoSettings,type PublicPhotoSetRef} from "../PublicPhotoSettings.js";
@@ -18,10 +20,10 @@ import {baseLayer,toolLayer,type ToolLayerOptions,type ToolPluginOptions} from "
 
 export const PHOTO_TOOL_ID="toolbox.photo";
 export type LocalPhoto=StoredPhoto&{url:string};
-export type PhotoEventActions={save:(input:{name:string;tags:string[];photoIds:string[]})=>Promise<PhotoEvent>;setOnMap:(id:string,onMap:boolean)=>Promise<void>;setPhotos:(id:string,photoIds:string[])=>Promise<void>;setCaption:(photoId:string,caption:string)=>Promise<void>;recordShare:(id:string,share:NonNullable<PhotoEvent["share"]>)=>Promise<void>;remove:(id:string)=>Promise<void>};
+export type PhotoEventActions={save:(input:{name:string;tags:string[];photoIds:string[]})=>Promise<PhotoEvent>;setOnMap:(id:string,onMap:boolean)=>Promise<void>;setPhotos:(id:string,photoIds:string[])=>Promise<void>;setCaption:(photoId:string,caption:string)=>Promise<void>;setDetails:(id:string,details:{name:string;tags:string[]})=>Promise<void>;recordShare:(id:string,share:NonNullable<PhotoEvent["share"]>)=>Promise<void>;remove:(id:string)=>Promise<void>};
 type PhotoStore={photos:LocalPhoto[];events:PhotoEvent[];ready:boolean;message:string;add:(photos:(GeotaggedPhoto&{caption?:string})[])=>Promise<StoredPhoto[]>;actions:PhotoEventActions};
 const unavailable=async()=>{throw new Error("storage not ready");};
-const pending:PhotoStore={photos:[],events:[],ready:false,message:"",add:async()=>[],actions:{save:unavailable,setOnMap:unavailable,setPhotos:unavailable,setCaption:unavailable,recordShare:unavailable,remove:unavailable}};
+const pending:PhotoStore={photos:[],events:[],ready:false,message:"",add:async()=>[],actions:{save:unavailable,setOnMap:unavailable,setPhotos:unavailable,setCaption:unavailable,setDetails:unavailable,recordShare:unavailable,remove:unavailable}};
 /** Photos of events added to the map (every event layer together). */
 export function photosOnMap(photos:readonly LocalPhoto[],events:readonly PhotoEvent[]){
  const shown=new Set(events.filter(event=>event.onMap).flatMap(event=>event.photoIds));
@@ -85,6 +87,15 @@ function useOwnedLayers(key:string,template:LayerTemplate|false,items:readonly {
   if(!template||!ready)return;
   const wanted=new Map(items.map(item=>[item.id,item.name]));
   for(const layer of registry.getSnapshot().layers)if(layer.owner?.toolId===toolId&&layer.owner.key===key&&!wanted.has(layer.id))registry.unregister(layer.id);
+  // A renamed set keeps its place, visibility and opacity under the new title.
+  for(const [id,name] of wanted){
+   const snapshot=registry.getSnapshot(),index=snapshot.layers.findIndex(layer=>layer.id===id),layer=snapshot.layers[index];
+   if(!layer||layer.title===`${template.title}/${name}`)continue;
+   const next=snapshot.layers[index+1],visible=snapshot.visible[id],opacity=snapshot.opacity[id];
+   registry.unregister(id);
+   registry.registerOwned(toolId,[{...layer,title:`${template.title}/${name}`,legend:name}],next?{before:next.id}:"end");
+   registry.update({visible:{[id]:visible},opacity:{[id]:opacity}});
+  }
   const all=registry.getSnapshot().layers,owned=all.filter(layer=>layer.owner?.toolId===toolId);
   const missing=[...wanted].filter(([id])=>!owned.some(layer=>layer.id===id)).map(([id,name]):LayerDefinition=>({...template,id,title:`${template.title}/${name}`,legend:name,visible:true,owner:{toolId,key}}));
   if(!missing.length)return;
@@ -146,6 +157,26 @@ function usePublicSets(template:LayerTemplate|false){
   return ()=>{cancelled=true;};
  },[client,storageKey,setStore]);
 }
+const PHOTO_COLUMNS=["name","caption","capturedAt","eventName","username","tags"] as const;
+/** One Data Panel source per photo layer: a row per photo; its name zooms to the photo and opens its popup. */
+function PhotoLayerData({layer,photos}:{layer:LayerDefinition;photos:readonly MapPhoto[]}){
+ const {registry}=useLayers(),map=useMapAdapter(),[,setFocus]=useToolState<PhotoFocus|null>("focus",null);
+ const t=useToolText("photoData",photoDataTh);
+ const labels=useMemo(()=>({name:t.name,caption:t.caption,capturedAt:t.capturedAt,eventName:t.eventName,username:t.username,tags:t.tags}),[t]);
+ const features=useMemo(()=>photos.map((photo):Feature<Point>=>({type:"Feature",id:photo.id,geometry:{type:"Point",coordinates:[photo.longitude,photo.latitude]},properties:Object.fromEntries(Object.entries({name:photo.name,caption:photo.caption,capturedAt:photo.capturedAt?.replace("T"," "),eventName:photo.eventName,username:photo.username,tags:photo.tags?.join(", ")}).filter(([,value])=>value))})),[photos]);
+ const select=useCallback((feature:Feature)=>{
+  const [longitude,latitude]=(feature.geometry as Point).coordinates;
+  registry.setVisible(layer.id,true);
+  try{map?.navigate({longitude,latitude,zoom:Math.max(map.getZoom(),16)});}catch{/* map not ready: keep the view */}
+  setFocus({layerId:layer.id,photoId:String(feature.id),at:Date.now()});
+ },[registry,map,layer.id,setFocus]);
+ useDataSource({id:layer.id,title:layer.title,layerId:layer.id,features,columns:PHOTO_COLUMNS,labels,select});
+ return null;
+}
+function PhotoDataSources(){
+ const {layers}=usePhotoToolState();
+ return <>{layers.map(({layer,photos})=><PhotoLayerData key={layer.id} layer={layer} photos={photos}/>)}</>;
+}
 /** Restores My Photos from browser storage every minute and when the tab becomes visible; owns their object URLs. */
 function Controller({template,publicTemplate}:{template:LayerTemplate|false;publicTemplate:LayerTemplate|false}){
  const storage=useToolStorage("photos",appId=>createPhotoStorage(storageName(appId,"photo"))),userId=useToolUser().id;
@@ -155,7 +186,7 @@ function Controller({template,publicTemplate}:{template:LayerTemplate|false;publ
  const eventItems=useMemo(()=>store.events.filter(event=>event.onMap).map(event=>({id:eventLayerId(event.id),name:event.name})),[store.events]);
  useOwnedLayers(PHOTO_EVENT_LAYER_KEY,template,eventItems,store.ready,true);
  usePublicSets(publicTemplate);
- const latest=useRef({registry,map,t,photos:()=>store.photos});latest.current={registry,map,t,photos:()=>store.photos};
+ const latest=useRef({registry,map,t,photos:()=>store.photos,events:()=>store.events});latest.current={registry,map,t,photos:()=>store.photos,events:()=>store.events};
  useEffect(()=>{
   let cancelled=false;const urls=new Set<string>();
   const withUrl=(record:StoredPhoto):LocalPhoto=>{const url=URL.createObjectURL(record.blob);urls.add(url);return {...record,url};};
@@ -167,6 +198,12 @@ function Controller({template,publicTemplate}:{template:LayerTemplate|false;publ
    return stored;
   }
   const replace=(event:PhotoEvent)=>setStore(current=>({...current,events:current.events.map(item=>item.id===event.id?event:item)}));
+  // Photos live only in sets: one left in no set is deleted from the browser.
+  async function prune(candidates:readonly string[],events:readonly PhotoEvent[]){
+   const orphans=candidates.filter(id=>!events.some(event=>event.photoIds.includes(id)));if(!orphans.length)return;
+   await storage.deletePhotos(userId,orphans);
+   setStore(current=>({...current,photos:current.photos.filter(photo=>{if(!orphans.includes(photo.id))return true;URL.revokeObjectURL(photo.url);urls.delete(photo.url);return false;})}));
+  }
   const actions:PhotoEventActions={
    async save(input){const event=await storage.saveEvent(userId,input);setStore(current=>({...current,events:[event,...current.events]}));return event;},
    async setOnMap(id,onMap){
@@ -177,13 +214,22 @@ function Controller({template,publicTemplate}:{template:LayerTemplate|false;publ
     registry.setVisible(eventLayerId(id),true);
     if(photos.length){const lngs=photos.map(photo=>photo.longitude),lats=photos.map(photo=>photo.latitude);try{map?.fitBounds([[Math.min(...lngs),Math.min(...lats)],[Math.max(...lngs),Math.max(...lats)]]);}catch{/* keep the current view */}}
    },
-   async setPhotos(id,photoIds){replace(await storage.updateEvent(userId,id,{photoIds}));},
+   async setPhotos(id,photoIds){
+    const before=latest.current.events().find(event=>event.id===id)?.photoIds??[];
+    const event=await storage.updateEvent(userId,id,{photoIds});replace(event);
+    await prune(before.filter(photoId=>!photoIds.includes(photoId)),latest.current.events().map(item=>item.id===id?event:item));
+   },
    async setCaption(photoId,caption){
     const {caption:next}=await storage.setCaption(userId,photoId,caption);
     setStore(current=>({...current,photos:current.photos.map(photo=>{if(photo.id!==photoId)return photo;const {caption:_old,...rest}=photo;void _old;return next?{...rest,caption:next}:rest;})}));
    },
+   async setDetails(id,{name,tags}){replace(await storage.updateEvent(userId,id,{name,tags:[...tags]}));},
    async recordShare(id,share){replace(await storage.updateEvent(userId,id,{share}));},
-   async remove(id){await storage.deleteEvent(userId,id);setStore(current=>({...current,events:current.events.filter(event=>event.id!==id)}));},
+   async remove(id){
+    const removed=latest.current.events().find(event=>event.id===id);
+    await storage.deleteEvent(userId,id);setStore(current=>({...current,events:current.events.filter(event=>event.id!==id)}));
+    if(removed)await prune(removed.photoIds,latest.current.events().filter(event=>event.id!==id));
+   },
   };
   async function restore(){
    try{
@@ -202,7 +248,7 @@ function Controller({template,publicTemplate}:{template:LayerTemplate|false;publ
   document.addEventListener("visibilitychange",onVisible);
   return ()=>{cancelled=true;window.clearInterval(timer);document.removeEventListener("visibilitychange",onVisible);urls.forEach(url=>URL.revokeObjectURL(url));urls.clear();};
  },[storage,userId,setStore]);
- return null;
+ return <PhotoDataSources/>;
 }
 function Panel(){
  const layers=useToolLayers();
@@ -226,8 +272,8 @@ function Dialogs(){
 export type PhotoToolOptions=ToolPluginOptions&{mine?:ToolLayerOptions;shared?:ToolLayerOptions};
 /** Engine-neutral markers and popup positioned through `MapAdapter.project`. */
 function Overlay(){
- const {visible,opacity}=useLayers(),{layers}=usePhotoToolState();
- return <PhotoOverlay layers={layers} visible={visible} opacity={opacity}/>;
+ const {visible,opacity}=useLayers(),{layers}=usePhotoToolState(),[focus]=useToolState<PhotoFocus|null>("focus",null);
+ return <PhotoOverlay layers={layers} visible={visible} opacity={opacity} focus={focus}/>;
 }
 /**
  * My Photos (browser, 15 days; one layer per event set added to the map) and Public Photos (sets found by search, one

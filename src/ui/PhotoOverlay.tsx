@@ -25,11 +25,14 @@ function popupPlacement(anchor:{x:number;y:number},width:number,height:number){
   return anchor.y>height/2?{left,top:anchor.y-24,transform:"translate(-50%,-100%)"}:{left,top:anchor.y+24,transform:"translate(-50%,0)"};
 }
 /** Markers and one popup as HTML positioned with `MapAdapter.project`, so any engine with an adapter can show photos. */
-function PhotoMarkers({map,layer,photos,opacity}:{map:MapAdapter;layer:LayerDefinition;photos:MapPhoto[];opacity:number}){
+/** A photo to open in its layer's popup (e.g. from the Data Panel); `at` makes a repeated request a new one. */
+export type PhotoFocus={layerId:string;photoId:string;at:number};
+function PhotoMarkers({map,layer,photos,opacity,focus}:{map:MapAdapter;layer:LayerDefinition;photos:MapPhoto[];opacity:number;focus?:PhotoFocus|null}){
   const {width,height}=useMapFrame(map);
   const t=useToolText("photoOverlay",photoOverlayTh);
   const [selectedId,setSelectedId]=useState<string|null>(null);
   const photo=photos.find(item=>item.id===selectedId);
+  useEffect(()=>{if(focus)setSelectedId(focus.layerId===layer.id?focus.photoId:null);},[focus,layer.id]);
   useEffect(()=>{if(!photo)return;const close=(event:KeyboardEvent)=>{if(event.key==="Escape")setSelectedId(null);};window.addEventListener("keydown",close);return ()=>window.removeEventListener("keydown",close);},[photo]);
   const place=(item:MapPhoto)=>map.project([item.longitude,item.latitude]);
   const inView=(point:{x:number;y:number})=>point.x>-40&&point.y>-40&&point.x<width+40&&point.y<height+40;
@@ -52,9 +55,9 @@ function PhotoMarkers({map,layer,photos,opacity}:{map:MapAdapter;layer:LayerDefi
   </>;
 }
 /** Engine-neutral photo layers: one marker set per visible layer (My Photos event sets and Public photo sets). */
-export function PhotoOverlay({layers,visible,opacity}:{layers:readonly {layer:LayerDefinition;photos:MapPhoto[]}[];visible:Readonly<Record<string,boolean>>;opacity:Readonly<Record<string,number>>}){
+export function PhotoOverlay({layers,visible,opacity,focus}:{layers:readonly {layer:LayerDefinition;photos:MapPhoto[]}[];visible:Readonly<Record<string,boolean>>;opacity:Readonly<Record<string,number>>;focus?:PhotoFocus|null}){
   const {current:map}=useToolboxMap();
   return <div className="pointer-events-none absolute inset-0 z-10 overflow-hidden">
-    {layers.map(({layer,photos})=>visible[layer.id]&&<PhotoMarkers key={layer.id} map={map} layer={layer} photos={photos} opacity={opacity[layer.id]??layer.opacity}/>)}
+    {layers.map(({layer,photos})=>visible[layer.id]&&<PhotoMarkers key={layer.id} map={map} layer={layer} photos={photos} opacity={opacity[layer.id]??layer.opacity} focus={focus}/>)}
   </div>;
 }

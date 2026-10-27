@@ -44,6 +44,7 @@ export function DataPanel({onSelect,selected,pageSize=100,labels,actions,classNa
  const choose=(next:string)=>{setActiveId(next);setPage(0);};
  function select(feature:Feature){
   if(!source)return;
+  if(source.select)return source.select(feature);
   if(onSelect)return onSelect(feature,source);
   if(!map||!feature.geometry)return;
   try{
