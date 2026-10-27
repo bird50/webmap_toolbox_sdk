@@ -1,7 +1,7 @@
 /** Thai defaults for this component's user-facing text. Functions take the values they interpolate. */
 export const photoEventsTh={
  title:"บันทึกชุดเหตุการณ์",
- intro:"รวมภาพจาก My Photos เป็นชุดเหตุการณ์ เก็บบนเบราว์เซอร์นี้ (ยังไม่อัปโหลด) จากนั้นเลือก Add to map เพื่อแสดงบนแผนที่ เพิ่ม-ลบรูปในชุดได้ หรือ Save to Public เพื่อเผยแพร่ทั้งชุด",
+ intro:"รวมภาพจาก My Photos เป็นชุดเหตุการณ์ เก็บบนเบราว์เซอร์นี้ (ยังไม่อัปโหลด) จากนั้นเลือก Add to map เพื่อเพิ่ม layer “My Photos/ชื่อเหตุการณ์” (ซ่อนได้จากรายการชั้นข้อมูล) เพิ่ม-ลบรูปในชุดได้ หรือ Save to Public เพื่อเผยแพร่ทั้งชุด",
  event:"ชื่อเหตุการณ์",
  eventPlaceholder:"เช่น น้ำท่วมบริเวณสะพาน",
  tags:"แท็ก (คั่นด้วย ,)",
@@ -15,7 +15,7 @@ export const photoEventsTh={
  pickCount:(max:number)=>`เลือกภาพ 1–${max} รูปจาก My Photos`,
  save:"Save ชุดเหตุการณ์",
  saving:"กำลังบันทึก…",
- saved:(name:string)=>`บันทึกชุด "${name}" บนเครื่องแล้ว กด Add to map เพื่อแสดงบนแผนที่`,
+ saved:(name:string)=>`บันทึกชุด "${name}" บนเครื่องแล้ว กด Add to map เพื่อเพิ่มเป็น layer บนแผนที่`,
  saveFailed:"บันทึกชุดเหตุการณ์ไม่สำเร็จ กรุณาลองใหม่",
  list:(n:number)=>`ชุดเหตุการณ์บนเครื่อง (${n})`,
  none:"ยังไม่มีชุดเหตุการณ์",

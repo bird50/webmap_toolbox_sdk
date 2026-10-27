@@ -95,8 +95,8 @@ test('photo: the controller restores My Photos with object URLs and revokes them
  URL.createObjectURL=()=>{const url=`blob:test/${created.length}`;created.push(url);return url;};URL.revokeObjectURL=url=>{revoked.push(url);};
  try{
   await render(h(ui.ToolboxProvider,{runtime:rt,registry,user:{id:'u4',accessLevel:'MEMBER'},map,plugins:[createPhotoTool(()=>null,[])]},h(ToolboxPanel)));
-  assert.match(container.textContent??'',/Layer My Photos \(1\)/);
-  assert.deepEqual(registry.getSnapshot().layers.map(l=>[l.id,l.visible]),[['my-photos',true],['public-photos',false]]);
+  assert.match(container.textContent??'',/My Photos \(ชุดบนแผนที่ 0 · รูป 1\)/);
+  assert.deepEqual(registry.getSnapshot().layers.map(l=>[l.id,l.visible]),[['public-photos',false]],'no My Photos layer until a set is added to the map');
   act(()=>root.unmount());root=createRoot(container);
   assert.ok(created.length>=1);
   assert.ok(created.every(url=>revoked.includes(url)),'every created URL is revoked');
@@ -244,7 +244,15 @@ test('photo events: a named set is saved in the browser, Add to map shows it, ph
   await act(async()=>{(document.querySelector('[aria-label="แสดงชุด น้ำท่วมสะพาน บนแผนที่"]') as HTMLButtonElement).click();});await settle();
   assert.deepEqual(markers(),['ดูภาพ a.jpg']);
   assert.deepEqual(named('fitBounds').at(-1),['fitBounds',[[100,13],[100,13]]]);
-  assert.equal(registry.getSnapshot().visible['my-photos'],true);
+  const eventLayers=()=>registry.getSnapshot().layers.filter(layer=>layer.id.startsWith('my-photos/')).map(layer=>layer.title);
+  assert.deepEqual(eventLayers(),['My Photos/น้ำท่วมสะพาน'],'the set becomes its own layer');
+  const layerId=registry.getSnapshot().layers.find(layer=>layer.title==='My Photos/น้ำท่วมสะพาน')!.id;
+  assert.deepEqual(registry.getSnapshot().layers.map(layer=>layer.id),[layerId,'public-photos']);
+  assert.equal(registry.getSnapshot().layers[0].owner?.key,'event');
+  act(()=>registry.setVisible(layerId,false));
+  assert.deepEqual(markers(),[],'hiding the layer hides its markers');
+  await act(async()=>{(document.querySelector('[aria-label="แสดงชุด น้ำท่วมสะพาน บนแผนที่"]') as HTMLButtonElement).click();});await settle();
+  assert.equal(registry.getSnapshot().visible[layerId],true,'Add to map shows a hidden set again');
   assert.doesNotMatch(document.body.textContent??'',/ซ่อนจากแผนที่/,'no hide button');
   click('[aria-label="เพิ่ม-ลบรูปในชุด น้ำท่วมสะพาน"]');
   const editor='form[aria-label="เพิ่ม-ลบรูปในชุด น้ำท่วมสะพาน"]';
@@ -267,7 +275,14 @@ test('photo events: a named set is saved in the browser, Add to map shows it, ph
   assert.deepEqual([posted[0].get('eventName'),posted[0].get('tags'),posted[0].getAll('photos').length],['น้ำท่วมสะพาน','["flood","เฝ้าระวัง"]',1]);
   assert.match(document.body.textContent??'',/Save to Public แล้ว · share2026-10-27, flood/);
   assert.equal(document.querySelector('[aria-label="Save to Public ชุด น้ำท่วมสะพาน"]'),null,'a saved set is not uploaded twice');
+  // A second set gets its own layer above the first.
+  field('#photo-event-name','ตลิ่งพัง');pick('a.jpg');await submit();await settle();
+  await act(async()=>{(document.querySelector('[aria-label="แสดงชุด ตลิ่งพัง บนแผนที่"]') as HTMLButtonElement).click();});await settle();
+  assert.deepEqual(eventLayers(),['My Photos/ตลิ่งพัง','My Photos/น้ำท่วมสะพาน']);
+  assert.equal(registry.getSnapshot().layers.at(-1)?.id,'public-photos');
+  await act(async()=>{(document.querySelector('[aria-label="ลบชุด ตลิ่งพัง"]') as HTMLButtonElement).click();});await settle();
   await act(async()=>{(document.querySelector('[aria-label="ลบชุด น้ำท่วมสะพาน"]') as HTMLButtonElement).click();});await settle();
+  assert.deepEqual(eventLayers(),[],'deleting a set removes its layer');
   const after=await rt.storage.photos.loadPhotos('u8');
   assert.deepEqual([after.events.length,after.photos.length],[0,2],'deleting a set keeps its photos');
  }finally{URL.createObjectURL=createObjectURL;URL.revokeObjectURL=revokeObjectURL}

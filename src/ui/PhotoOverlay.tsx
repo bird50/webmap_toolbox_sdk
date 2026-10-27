@@ -87,11 +87,11 @@ function PhotoMarkers({map,layer,photos,opacity}:{map:MapAdapter;layer:LayerDefi
 function RemotePhotos({map,layer,opacity,filters,onStatus}:{map:MapAdapter;layer:LayerDefinition;opacity:number;filters:PublicPhotoFilters;onStatus:(status:PublicPhotoStatus)=>void}){
   return <PhotoMarkers map={map} layer={layer} photos={usePublicPhotos(map,layer,filters,onStatus)} opacity={opacity}/>;
 }
-/** Engine-neutral photo layers: `mine` shows browser photos, `shared` queries public photos for the viewport. */
-export function PhotoOverlay({mine,shared,photos,visible,opacity,publicFilters,onPublicStatus}:{mine?:LayerDefinition;shared?:LayerDefinition;photos:MapPhoto[];visible:Readonly<Record<string,boolean>>;opacity:Readonly<Record<string,number>>;publicFilters:PublicPhotoFilters;onPublicStatus:(status:PublicPhotoStatus)=>void}){
+/** Engine-neutral photo layers: one marker set per visible event layer (browser photos), `shared` queries public photos for the viewport. */
+export function PhotoOverlay({events,shared,visible,opacity,publicFilters,onPublicStatus}:{events:readonly {layer:LayerDefinition;photos:MapPhoto[]}[];shared?:LayerDefinition;visible:Readonly<Record<string,boolean>>;opacity:Readonly<Record<string,number>>;publicFilters:PublicPhotoFilters;onPublicStatus:(status:PublicPhotoStatus)=>void}){
   const {current:map}=useToolboxMap();
   return <div className="pointer-events-none absolute inset-0 z-10 overflow-hidden">
-    {mine&&visible[mine.id]&&<PhotoMarkers map={map} layer={mine} photos={photos} opacity={opacity[mine.id]??mine.opacity}/>}
+    {events.map(({layer,photos})=>visible[layer.id]&&<PhotoMarkers key={layer.id} map={map} layer={layer} photos={photos} opacity={opacity[layer.id]??layer.opacity}/>)}
     {shared&&visible[shared.id]&&<RemotePhotos map={map} layer={shared} opacity={opacity[shared.id]??shared.opacity} filters={publicFilters} onStatus={onPublicStatus}/>}
   </div>;
 }

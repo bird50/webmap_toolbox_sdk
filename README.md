@@ -69,9 +69,9 @@ Drawing and photo overlays are HTML/SVG positioned with `project`, so they need 
 | --- | --- | --- |
 | `dataFilesTool()` | `files` → `my-data-files`, `public` → `public-data-files` | `map.geojson` |
 | `drawTool()` | `mine` → `my-drawing`, `public` → `public-drawing` | `map.viewport`, `map.project`, `map.events` |
-| `photoTool()` | `mine` → `my-photos`, `public` → `public-photos` | `map.viewport`, `map.project`, `map.events` |
+| `photoTool()` | `event` → `my-photos/<eventId>` (one per set added to the map, template from `mine`), `public` → `public-photos` | `map.viewport`, `map.project`, `map.events` |
 
-Photos are grouped into event sets in the browser (a required name, tags, 1–10 photos that can be added or removed later). Only sets added with **Add to map** are drawn on My Photos; **Save to Public** uploads a set as one share. Each photo can carry a caption (up to 500 characters) that is shown in its popup and sent with Save to Public. Toolbox Service 1.3 stores the app name (gateway header `x-toolbox-app-name`) and the app user (`x-toolbox-username`, `anonymous` when absent) with every share.
+Photos are grouped into event sets in the browser (a required name, tags, 1–10 photos that can be added or removed later). Each set added with **Add to map** becomes its own layer "My Photos/<event name>" (hide it in the layer list, or delete the set to remove it); **Save to Public** uploads a set as one share. Each photo can carry a caption (up to 500 characters) that is shown in its popup and sent with Save to Public. Toolbox Service 1.3 stores the app name (gateway header `x-toolbox-app-name`) and the app user (`x-toolbox-username`, `anonymous` when absent) with every share.
 | `navigationTool({home})` | none | `map.navigate` |
 
 Factories take `id`, `title`, `accessLevel` and per-layer overrides (`layer`, `mine`, `shared`): any `LayerDefinition` field, or `false` to drop that layer. `createPhotoTool(Overlay, requires, options)` swaps the photo renderer. Tool layers are filtered by the registry's access level like any layer, so a `PUBLIC` registry hides the `MEMBER` "My …" layers.

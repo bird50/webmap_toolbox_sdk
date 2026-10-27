@@ -11,11 +11,12 @@ import {DataFilesTool} from '../src/ui/tools/DataFilesTool.js';
 
 // Server rendering only: verifies markup, labels and state wiring of the current tool panels without a DOM.
 const base:LayerDefinition={id:'',title:'',description:'',group:'test',type:'GEOJSON',url:'local:test',visible:false,opacity:1,minZoom:0,maxZoom:24,accessLevel:'PUBLIC',color:'#dc2626',legend:'',popupFields:[]};
-const photo={onMyPhotoSettings(){},myPhotoSettingsOpen:false,count:3,layerVisible:true,onLayerVisible(){},publicVisible:true,onPublicVisible(){},publicStatus:{count:7,loading:false,error:'',hasMore:false},onPublicSettings(){},publicSettingsOpen:true,filterCount:2};
+const photo={onMyPhotoSettings(){},myPhotoSettingsOpen:false,count:3,eventsOnMap:1,publicVisible:true,onPublicVisible(){},publicStatus:{count:7,loading:false,error:'',hasMore:false},onPublicSettings(){},publicSettingsOpen:true,filterCount:2};
 
 test('PhotoTool shows counts, filter summary, dialog state and each public status',()=>{
  const html=renderToStaticMarkup(h(PhotoTool,photo));
- assert.match(html,/Layer My Photos <span[^>]*>\(3\)/);
+ assert.match(html,/My Photos <span[^>]*>\(ชุดบนแผนที่ 1 · รูป 3\)/);
+ assert.doesNotMatch(html,/id="my-photos-layer"/,'no single My Photos layer switch');
  assert.match(html,/\(7\)/);
  assert.match(html,/ใช้เงื่อนไขค้นหา 2 รายการ/);
  assert.match(html,/aria-label="ตั้งค่า Public Photos"[^>]*aria-expanded="true"/);

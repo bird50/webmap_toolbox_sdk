@@ -1,6 +1,6 @@
 "use client";
 /** Photo tool: plugin, UI, browser store and text defaults. Imports only shared runtime code, never another tool. */
-export {photoTool,createPhotoTool,usePhotoToolState,photosOnMap,PHOTO_TOOL_ID,type PhotoToolOptions,type LocalPhoto,type PhotoEventActions} from '../ui/plugins/photo.js';
+export {photoTool,createPhotoTool,usePhotoToolState,photosOnMap,eventLayerId,PHOTO_EVENT_LAYER_KEY,PHOTO_TOOL_ID,type PhotoEventLayer,type PhotoToolOptions,type LocalPhoto,type PhotoEventActions} from '../ui/plugins/photo.js';
 export {PhotoOverlay,type MapPhoto,type PublicPhotoStatus} from '../ui/PhotoOverlay.js';
 export {PhotoSettings} from '../ui/PhotoSettings.js';
 export {PublicPhotoSettings} from '../ui/PublicPhotoSettings.js';

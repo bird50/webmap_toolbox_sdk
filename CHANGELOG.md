@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.5.0
+
+One layer per photo event set.
+
+- The static `my-photos` layer is gone. Each set added to the map (**Add to map**) is its own layer `my-photos/<eventId>` titled "My Photos/<event name>" (owner key `event`, `PHOTO_EVENT_LAYER_KEY`, `eventLayerId()`), newest first above Public Photos. Hide a set with its layer; deleting the set removes the layer; Add to map shows a hidden set again. The `mine` option is now the template of these layers (`false` turns them off).
+- Every event layer's settings opens the My Photos dialog (`layerSettings.event`).
+- Breaking for custom renderers: `PhotoOverlay` takes `events:{layer,photos}[]` instead of `mine`/`photos`; `usePhotoToolState()` adds `events` (one entry per event layer, a photo in several visible sets drawn once). `PhotoTool` drops `layerVisible`/`onLayerVisible` and takes `eventsOnMap`; the My Photos row keeps only its settings button.
+- Photo plugin version 3.0.0.
+
 ## 1.4.0
 
 Photo event sets: photos are grouped into events in the browser before they reach the map or the server.
