@@ -155,6 +155,27 @@ export function useLayerSettings(layerId:string){
  const dialog=useDialogController(plugin?.id??'',name??'');
  return name?dialog:undefined;
 }
+const REMOVE='\u0000remove';
+type LayerRemovers=Readonly<Record<string,(layerId:string)=>void>>;
+const noRemovers:LayerRemovers={};
+/**
+ * Offers removal of this tool's layers under `key` (e.g. one per set added to the map) to host Layer Panels while the
+ * calling component is mounted. `remove` gets the layer ID; keep it stable.
+ */
+export function useLayerRemover(key:string,remove:(layerId:string)=>void){
+ const toolId=useToolId(),{store}=useToolWorkspace();
+ useEffect(()=>{
+  store.setState<LayerRemovers>(toolId,REMOVE,noRemovers,current=>({...current,[key]:remove}));
+  return ()=>store.setState<LayerRemovers>(toolId,REMOVE,noRemovers,current=>{if(current[key]!==remove)return current;const next={...current};delete next[key];return next;});
+ },[store,toolId,key,remove]);
+}
+/** Removal offered by the tool that owns `layerId` (see `useLayerRemover`), for host Layer Panels; undefined when none. */
+export function useLayerRemove(layerId:string):(()=>void)|undefined{
+ const owner=useLayers().layers.find(layer=>layer.id===layerId)?.owner;
+ const [removers]=useToolStateOf<LayerRemovers>(owner?.toolId??'',REMOVE,noRemovers);
+ const remove=owner?removers[owner.key]:undefined;
+ return useMemo(()=>remove&&(()=>remove(layerId)),[remove,layerId]);
+}
 const DATA='\u0000data';
 type DataSources=Readonly<Record<string,DataSource>>;
 const noSources:DataSources={};

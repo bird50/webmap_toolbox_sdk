@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.8.0
+
+- Host Layer Panels can offer a − button that takes a tool layer off the map: tools call `useLayerRemover(key, remove)`, hosts call `useLayerRemove(layerId)` (undefined when the owning tool offers none). The photo tool offers it for My Photos event layers (same as Remove from map; the set stays) and Public set layers.
+
 ## 1.7.0
 
 Photos go straight into event sets.

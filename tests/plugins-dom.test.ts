@@ -329,7 +329,8 @@ test('public photo sets: search lists sets first, Add to map makes one layer per
  const {map,named}=fakeMap(),registry=createLayerRegistry([],'MEMBER');
  const markers=()=>[...document.querySelectorAll('button[aria-label^="ดูภาพ "]')].map(button=>button.getAttribute('aria-label'));
  const titles=()=>registry.getSnapshot().layers.filter(layer=>layer.id.startsWith('public-photos/')).map(layer=>layer.title);
- const view=()=>h(ui.ToolboxProvider,{runtime:rt,registry,user:{id:'u10',accessLevel:'MEMBER'},map,plugins:[dataFilesTool(),photoTool(),drawTool()]},h(ToolboxPanel),h(ToolOverlays),h(ToolDialogs),h(DataPanel));
+ const view=()=>h(ui.ToolboxProvider,{runtime:rt,registry,user:{id:'u10',accessLevel:'MEMBER'},map,plugins:[dataFilesTool(),photoTool(),drawTool()]},h(ToolboxPanel),h(ToolOverlays),h(ToolDialogs),h(DataPanel),h(HostRemove,{layerId:`public-photos/${id2}`}),h(HostRemove,{layerId:'my-drawing'}));
+ function HostRemove({layerId}:{layerId:string}){const remove=ui.useLayerRemove(layerId);return remove?h('button',{id:`remove-${layerId.replace('/','-')}`,onClick:remove},'−'):null;}
  await render(view());
  assert.equal(document.querySelector('#public-photos-layer'),null,'no Public Photos switch');
  assert.deepEqual(titles(),[]);
@@ -355,6 +356,11 @@ test('public photo sets: search lists sets first, Add to map makes one layer per
  act(()=>registry.setVisible(`public-photos/${id1}`,false));
  assert.deepEqual(markers(),['ดูภาพ ตลิ่งพัง.jpg'],'the layer eye hides only its set');
  assert.ok(!tabs().some(tab=>tab?.startsWith('Public Photos/น้ำท่วมสะพาน')),'a hidden layer leaves the Data Panel');
+ assert.equal(document.querySelector('#remove-my-drawing'),null,'layers whose tool offers no removal get no − button');
+ click(`#remove-public-photos-${id2}`);await settle();
+ assert.deepEqual(titles(),['Public Photos/น้ำท่วมสะพาน'],'the host − button takes the set off the map');
+ assert.deepEqual(JSON.parse(localStorage.getItem('toolbox:sets:toolbox.photo:public-photo-sets:u10')!).map((item:{eventName:string})=>item.eventName),['น้ำท่วมสะพาน']);
+ await act(async()=>{(document.querySelector('[aria-label="Add to map ชุด ตลิ่งพัง"]') as HTMLButtonElement).click();});await settle();
  click('[aria-label="ดูภาพ ตลิ่งพัง.jpg"]');
  assert.match(document.body.textContent??'',/ระดับน้ำสูง/,'the popup shows the set photo and its caption');
  assert.deepEqual(JSON.parse(localStorage.getItem('toolbox:sets:toolbox.photo:public-photo-sets:u10')!).map((item:{eventName:string})=>item.eventName),['ตลิ่งพัง','น้ำท่วมสะพาน']);

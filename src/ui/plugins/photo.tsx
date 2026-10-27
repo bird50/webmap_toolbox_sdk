@@ -11,7 +11,7 @@ import type {PublicPhotoSet} from "../../core/public-photo-sets.js";
 import type {PhotoEvent,StoredPhoto} from "../../storage/photo-storage.js";
 import {createPhotoStorage} from "../../storage/photo-storage.js";
 import {storageName} from "../../storage/names.js";
-import {useDataSource,useLayers,useMapAdapter,useToolbox,useToolId,useToolWorkspace,useToolStorage,useToolDialog,useToolLayers,useToolText,useToolState,useToolUser} from "../context.js";
+import {useDataSource,useLayerRemover,useLayers,useMapAdapter,useToolbox,useToolId,useToolWorkspace,useToolStorage,useToolDialog,useToolLayers,useToolText,useToolState,useToolUser} from "../context.js";
 import {TOOL_API_VERSION,type ToolComponentProps,type ToolPlugin,type WebmapCapability} from "../contracts.js";
 import {PhotoSettings} from "../PhotoSettings.js";
 import {PublicPhotoSettings,type PublicPhotoSetRef} from "../PublicPhotoSettings.js";
@@ -119,6 +119,8 @@ function usePublicSets(template:LayerTemplate|false){
  const latest=useRef({registry,map,store});latest.current={registry,map,store};
  const items=useMemo(()=>store.added.map(set=>({id:publicSetLayerId(set.id),name:set.eventName})),[store.added]);
  useOwnedLayers(PUBLIC_PHOTO_SET_LAYER_KEY,template,items,store.ready,false);
+ // The host's Layer Panel can take a set off the map (the − button), like Remove from map in the search.
+ useLayerRemover(PUBLIC_PHOTO_SET_LAYER_KEY,useCallback((layerId:string)=>latest.current.store.actions.remove(layerId.slice("public-photos/".length)),[]));
  useEffect(()=>{
   let cancelled=false;
   async function load(id:string){
@@ -185,6 +187,8 @@ function Controller({template,publicTemplate}:{template:LayerTemplate|false;publ
  const t=useToolText("photoPlugin",photoPluginTh);
  const eventItems=useMemo(()=>store.events.filter(event=>event.onMap).map(event=>({id:eventLayerId(event.id),name:event.name})),[store.events]);
  useOwnedLayers(PHOTO_EVENT_LAYER_KEY,template,eventItems,store.ready,true);
+ const current=useRef(store);current.current=store;
+ useLayerRemover(PHOTO_EVENT_LAYER_KEY,useCallback((layerId:string)=>{void current.current.actions.setOnMap(layerId.slice("my-photos/".length),false);},[]));
  usePublicSets(publicTemplate);
  const latest=useRef({registry,map,t,photos:()=>store.photos,events:()=>store.events});latest.current={registry,map,t,photos:()=>store.photos,events:()=>store.events};
  useEffect(()=>{
