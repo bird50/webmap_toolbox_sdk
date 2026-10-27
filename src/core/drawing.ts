@@ -1,4 +1,5 @@
-import {circle,distance} from "@turf/turf";
+import {circle} from "@turf/circle";
+import {distance} from "@turf/distance";
 
 export type DrawTool="select"|"pan"|"pen"|"highlighter"|"eraser"|"point"|"line"|"polygon"|"rectangle"|"circle"|"arrow"|"text"|"textbox"|"callout"|"label"|"sticky"|"number"|"legend";
 export type Coordinate=[number,number];

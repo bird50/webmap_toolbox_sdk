@@ -1,4 +1,8 @@
 "use client";
+/**
+ * @deprecated All-in-one entry: the shared runtime plus every tool. Prefer `@thaiwater/toolbox-sdk/react/core` with the
+ * tools you use from `/tools/*`, so unused tools are not bundled. Kept for compatibility; may drop the tool re-exports in 2.0.
+ */
 export * from './context.js';
 export * from './runtime.js';
 export * from './messages.js';

@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.9.0
+
+Apps bundle only the tools they use.
+
+- New entry `@thaiwater/toolbox-sdk/react/core`: the shared host runtime (provider, panels, `DataPanel`, hooks, contracts, layer and runtime text) with no tool code; `tests/tool-boundaries.test.ts` enforces it. Import tools from `/tools/*`.
+- `/react` is deprecated (still exports everything; the tool re-exports may be dropped in 2.0). Migration: import the runtime from `/react/core` and each tool from its entry.
+- `package.json` declares `"sideEffects": ["*.css"]`, so bundlers drop unused tool modules (an app with only `navigationTool` contains no photo, draw or data-files code).
+- `@turf/turf` replaced by the parts in use: `@turf/bbox`, `@turf/circle`, `@turf/distance`.
+- `docs/new-tool.md`: recipe and checklist for adding a tool.
+
 ## 1.8.0
 
 - Host Layer Panels can offer a − button that takes a tool layer off the map: tools call `useLayerRemover(key, remove)`, hosts call `useLayerRemove(layerId)` (undefined when the owning tool offers none). The photo tool offers it for My Photos event layers (same as Remove from map; the set stays) and Public set layers.

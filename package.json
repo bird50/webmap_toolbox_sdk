@@ -1,7 +1,10 @@
 {
   "name": "@thaiwater/toolbox-sdk",
-  "version": "1.8.0",
+  "version": "1.9.0",
   "type": "module",
+  "sideEffects": [
+    "*.css"
+  ],
   "private": true,
   "files": [
     "dist",
@@ -14,6 +17,11 @@
       "types": "./dist/core/index.d.ts",
       "import": "./dist/core/index.js",
       "default": "./dist/core/index.js"
+    },
+    "./react/core": {
+      "types": "./dist/ui/core.d.ts",
+      "import": "./dist/ui/core.js",
+      "default": "./dist/ui/core.js"
     },
     "./react": {
       "types": "./dist/ui/index.d.ts",
@@ -88,7 +96,9 @@
     }
   },
   "dependencies": {
-    "@turf/turf": "^7.2.0",
+    "@turf/bbox": "^7.4.0",
+    "@turf/circle": "^7.4.0",
+    "@turf/distance": "^7.4.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "exifr": "^7.1.3",

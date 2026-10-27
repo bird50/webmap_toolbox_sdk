@@ -42,3 +42,8 @@ for(const tool of Object.keys(owners)){
   assert.ok(files.some(file=>owners[tool].test(file)),'entry exposes the tool itself');
  });
 }
+test('react/core (the shared host runtime) reaches no tool files and no all-in-one aggregate',()=>{
+ const files=[...closure('ui/core.ts')].map(file=>relative('.',file));
+ assert.deepEqual(files.filter(file=>Object.values(owners).some(pattern=>pattern.test(file))),[],'imports a tool');
+ assert.deepEqual(files.filter(file=>aggregates.has(file)),[],'imports an all-in-one aggregate');
+});

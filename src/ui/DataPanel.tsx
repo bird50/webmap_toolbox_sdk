@@ -1,6 +1,6 @@
 "use client";
 import {useId,useMemo,useState,type ReactNode} from "react";
-import {bbox} from "@turf/turf";
+import {bbox} from "@turf/bbox";
 import type {Feature} from "geojson";
 import {BarChart3,ChevronLeft,ChevronRight,Search,Table2,X} from "lucide-react";
 import {cellText,columnKind,matchesQuery,summarizeColumn,tableColumns,type DataSource} from "../core/data-table.js";

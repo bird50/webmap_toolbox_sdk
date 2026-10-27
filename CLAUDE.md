@@ -16,12 +16,14 @@ Reusable Photo / Draw / Data Files / Navigation tools for React web maps laid ou
 | `src/storage` | IndexedDB stores per tool, `storageName`, `createBrowserStorage` |
 | `src/ui` | `context.tsx` (provider + hooks, incl. `useDataSource`), `DataPanel.tsx` (table/chart over offered sources), `runtime.tsx` (ToolboxPanel/ToolOverlays/ToolDialogs), `contracts.ts` (ToolPlugin), tool components, `plugins/` (tool factories), `messages/` (one text group per file) |
 | `src/tools/*.ts` | Per-tool public entries |
+| `src/ui/core.ts` | `/react/core`: shared host runtime, no tool code (`/react` = `ui/index.ts` is the deprecated all-in-one) |
 | `src/adapters` | MapLibre adapter, bridge, GeoJSON surface, RegistryLayers |
 
 Public entries are listed in `package.json#exports`; everything else is private. Adding a public symbol means exporting it from an entry.
 
 ## Rules
 
+- **New tools.** Follow `docs/new-tool.md` (files, entry, export, ownership pattern, text, tests, docs). Never add tool code to `ui/core.ts`.
 - **Tool boundaries.** A tool's files may import shared runtime/core code but never another tool's files, `ui/messages.ts`, `ui/index.ts` or `storage/index.ts`. `tests/tool-boundaries.test.ts` enforces this; new tool files must be added to its ownership patterns.
 - **Text.** No literal user-facing strings in components. Add them to the component's group in `src/ui/messages/<group>.ts` (Thai default, functions for interpolation), read with `useToolText("<group>", <group>Th)`, register the group in `ui/messages.ts`, and export it from the tool entry. Inside effects/async callbacks read text through a ref, don't add it to deps.
 - **Colours.** Use tokens `text-[color:var(--sdk-<name>,#fallback)]`, not Tailwind palette classes (`slate-*`, `teal-*`…). The fallback is the visible default.

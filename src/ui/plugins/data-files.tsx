@@ -1,6 +1,6 @@
 "use client";
 import {useEffect} from "react";
-import {bbox} from "@turf/turf";
+import {bbox} from "@turf/bbox";
 import type {FeatureCollection} from "geojson";
 import {useDataSource,useLayers,useMapAdapter,useToolDialog,useToolLayers,useToolState,useToolText,useToolUser} from "../context.js";
 import {TOOL_API_VERSION,type ToolPlugin} from "../contracts.js";

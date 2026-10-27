@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {distance} from '@turf/turf';
+import {distance} from '@turf/distance';
 import {shapePoints,transformPoints,defaultDrawingStyle,type Coordinate} from '../src/core/drawing.js';
 import {drawingSchema,drawingCollection,drawingShareSchema} from '../src/core/drawing-contract.js';
 import {publicPhotoQuery,publicPhotoFilters,photoViewportBbox} from '../src/core/public-photo-query.js';

@@ -13,13 +13,15 @@ Node 22.14+ and npm. Run `npm install`, `npm run lint`, `npm run build`, `npm te
 ```tsx
 import {createLayerRegistry,createPublicClient} from '@thaiwater/toolbox-sdk';
 import {createBrowserStorage} from '@thaiwater/toolbox-sdk/storage';
-import {ToolboxProvider,ToolboxPanel,ToolOverlays,ToolDialogs,LayerPanel,dataFilesTool,drawTool,photoTool,navigationTool} from '@thaiwater/toolbox-sdk/react';
+import {ToolboxProvider,ToolboxPanel,ToolOverlays,ToolDialogs,LayerPanel} from '@thaiwater/toolbox-sdk/react/core';
+import {photoTool} from '@thaiwater/toolbox-sdk/tools/photo';                // only the tools this app uses
+import {navigationTool} from '@thaiwater/toolbox-sdk/tools/navigation';
 import {MapLibreToolboxBridge} from '@thaiwater/toolbox-sdk/maplibre';
 import '@thaiwater/toolbox-sdk/styles.css';
 
 const runtime={appId:'my-system',storage:createBrowserStorage('my-system'),client:createPublicClient()};
 const registry=createLayerRegistry(systemLayers,'MEMBER');            // module-level or useState: keep stable
-const plugins=[dataFilesTool(),photoTool(),drawTool(),navigationTool()];
+const plugins=[photoTool(),navigationTool()];
 
 <ToolboxProvider runtime={runtime} registry={registry} plugins={plugins} user={{id:userId,accessLevel:'MEMBER'}} toolLayers="start">
   <Map>…<MapLibreToolboxBridge><ToolOverlays/></MapLibreToolboxBridge></Map>   {/* Map Panel */}
@@ -36,7 +38,8 @@ Map, Layer and Toolbox are slots: the host decides placement, dimensions and vis
 | Import | Responsibility |
 | --- | --- |
 | package root | Layer/map contracts, `createLayerRegistry`, workspace store, public client, drawing/photo-share/public-query contracts |
-| `/react` | `ToolboxProvider`, `ToolboxPanel`/`ToolOverlays`/`ToolDialogs`, `DataPanel`, hooks, built-in plugins, tool UI components, `thMessages`, `WorkspacePanels`/`LayerPanel` |
+| `/react/core` | Shared host runtime, no tool code: `ToolboxProvider`, `ToolboxPanel`/`ToolOverlays`/`ToolDialogs`, `DataPanel`, hooks, plugin contracts, `WorkspacePanels`/`LayerPanel` |
+| `/react` | Deprecated all-in-one: `/react/core` plus every built-in tool, tool UI component and `thMessages` |
 | `/maplibre` | `createMapLibreAdapter`, `MapLibreToolboxBridge`, MapLibre GeoJSON surface, `RegistryLayers` |
 | `/storage` | Browser storage factories with app namespaces, `storageName`, `formatExpiry` |
 | `/tools/photo`, `/tools/draw`, `/tools/data-files`, `/tools/navigation` | One tool each: plugin factory, its UI components, store factory and text defaults |
@@ -45,7 +48,7 @@ Map, Layer and Toolbox are slots: the host decides placement, dimensions and vis
 
 Only these paths are public API; files under `dist/` are not importable individually.
 
-Import tools from their own entry when an app uses only some of them (`import {photoTool} from '@thaiwater/toolbox-sdk/tools/photo'`). A tool entry pulls in the shared runtime and its own files only — never another tool, the all-in-one message table or `createBrowserStorage` — and `tests/tool-boundaries.test.ts` enforces this, so each tool can later become its own package without code changes. `/react` still exports everything for existing apps.
+An app imports the shared runtime from `/react/core` and each tool it uses from its own entry (`import {photoTool} from '@thaiwater/toolbox-sdk/tools/photo'`), so tools it does not list are not bundled. The package declares `sideEffects` (only CSS), so bundlers drop unused modules; a build that uses only `navigationTool` contains no photo, draw or data-files code. A tool entry pulls in the shared runtime and its own files only — never another tool, the all-in-one message table or `createBrowserStorage` — and `tests/tool-boundaries.test.ts` enforces this, so each tool can later become its own package without code changes. `tests/tool-boundaries.test.ts` also keeps `/react/core` free of tool files. `/react` still exports everything for existing apps and is deprecated. To add a tool, follow [docs/new-tool.md](docs/new-tool.md).
 
 ## Data Panel
 
