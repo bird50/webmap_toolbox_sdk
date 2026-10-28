@@ -1,0 +1,27 @@
+# Owners review pull requests that touch their paths (see CONTRIBUTING.md).
+# Replace @bird50 on the tool lines with each tool owner's GitHub name, e.g. @dev-a for Draw.
+# The last matching line wins, so the default owner comes first.
+
+# Maintainer: shared runtime, contracts shared by all tools, packaging and releases.
+*                                        @bird50
+
+# Photo
+/src/tools/photo/                        @bird50
+/src/contracts/photo-*                   @bird50
+/src/contracts/public-photo-sets.ts      @bird50
+/tests/tools/photo*                      @bird50
+
+# Draw
+/src/tools/draw/                         @bird50
+/src/contracts/drawing-contract.ts       @bird50
+/src/contracts/public-drawing-sets.ts    @bird50
+/tests/tools/draw*                       @bird50
+
+# Data Files (KML/GeoJSON/CSV upload)
+/src/tools/data-files/                   @bird50
+/src/contracts/data-file-share.ts        @bird50
+/src/contracts/public-data-file-sets.ts  @bird50
+/tests/tools/data-files*                 @bird50
+
+# Navigation
+/src/tools/navigation/                   @bird50

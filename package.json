@@ -39,47 +39,48 @@
       "default": "./dist/storage/index.js"
     },
     "./core/drawing": {
-      "types": "./dist/core/drawing.d.ts",
-      "import": "./dist/core/drawing.js",
-      "default": "./dist/core/drawing.js"
+      "types": "./dist/tools/draw/drawing.d.ts",
+      "import": "./dist/tools/draw/drawing.js",
+      "default": "./dist/tools/draw/drawing.js"
     },
     "./core/data-files": {
-      "types": "./dist/core/data-files.d.ts",
-      "import": "./dist/core/data-files.js",
-      "default": "./dist/core/data-files.js"
+      "types": "./dist/tools/data-files/data-files.d.ts",
+      "import": "./dist/tools/data-files/data-files.js",
+      "default": "./dist/tools/data-files/data-files.js"
     },
     "./core/photo-gps": {
-      "types": "./dist/core/photo-gps.d.ts",
-      "import": "./dist/core/photo-gps.js",
-      "default": "./dist/core/photo-gps.js"
+      "types": "./dist/contracts/photo-gps.d.ts",
+      "import": "./dist/contracts/photo-gps.js",
+      "default": "./dist/contracts/photo-gps.js"
     },
     "./tools/photo": {
-      "types": "./dist/tools/photo.d.ts",
-      "import": "./dist/tools/photo.js",
-      "default": "./dist/tools/photo.js"
+      "types": "./dist/tools/photo/index.d.ts",
+      "import": "./dist/tools/photo/index.js",
+      "default": "./dist/tools/photo/index.js"
     },
     "./tools/draw": {
-      "types": "./dist/tools/draw.d.ts",
-      "import": "./dist/tools/draw.js",
-      "default": "./dist/tools/draw.js"
+      "types": "./dist/tools/draw/index.d.ts",
+      "import": "./dist/tools/draw/index.js",
+      "default": "./dist/tools/draw/index.js"
     },
     "./tools/data-files": {
-      "types": "./dist/tools/data-files.d.ts",
-      "import": "./dist/tools/data-files.js",
-      "default": "./dist/tools/data-files.js"
+      "types": "./dist/tools/data-files/index.d.ts",
+      "import": "./dist/tools/data-files/index.js",
+      "default": "./dist/tools/data-files/index.js"
     },
     "./tools/navigation": {
-      "types": "./dist/tools/navigation.d.ts",
-      "import": "./dist/tools/navigation.js",
-      "default": "./dist/tools/navigation.js"
+      "types": "./dist/tools/navigation/index.d.ts",
+      "import": "./dist/tools/navigation/index.js",
+      "default": "./dist/tools/navigation/index.js"
     },
     "./styles.css": "./dist/styles.css"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json && node scripts/styles.mjs",
     "lint": "tsc -p tsconfig.json --noEmit",
-    "test": "node --import tsx --test tests/*.test.ts",
-    "prepare": "npm run build"
+    "test": "node --import tsx --test tests/*.test.ts tests/tools/*.test.ts",
+    "prepare": "npm run build",
+    "release": "node scripts/release.mjs"
   },
   "peerDependencies": {
     "maplibre-gl": "^5.7.1 || ^6.5.0",

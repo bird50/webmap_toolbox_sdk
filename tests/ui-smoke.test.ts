@@ -5,9 +5,9 @@ import {renderToStaticMarkup} from 'react-dom/server';
 import {createLayerRegistry} from '../src/core/registry.js';
 import type {LayerDefinition} from '../src/core/layers.js';
 import {LayerPanel,WorkspacePanels} from '../src/ui/panels.js';
-import {PhotoTool} from '../src/ui/tools/PhotoTool.js';
-import {DrawTool} from '../src/ui/tools/DrawTool.js';
-import {DataFilesTool} from '../src/ui/tools/DataFilesTool.js';
+import {PhotoTool} from '../src/tools/photo/PhotoTool.js';
+import {DrawTool} from '../src/tools/draw/DrawTool.js';
+import {DataFilesTool} from '../src/tools/data-files/DataFilesTool.js';
 
 // Server rendering only: verifies markup, labels and state wiring of the current tool panels without a DOM.
 const base:LayerDefinition={id:'',title:'',description:'',group:'test',type:'GEOJSON',url:'local:test',visible:false,opacity:1,minZoom:0,maxZoom:24,accessLevel:'PUBLIC',color:'#dc2626',legend:'',popupFields:[]};

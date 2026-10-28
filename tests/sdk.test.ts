@@ -6,7 +6,7 @@ import {createBrowserStorage} from '../src/storage/index.js';
 import {createPublicClient} from '../src/core/client.js';
 import {createMapLibreAdapter} from '../src/adapters/maplibre.js';
 import type {Map as MapLibreMap} from 'maplibre-gl';
-import {defaultDrawingStyle} from '../src/core/drawing.js';
+import {defaultDrawingStyle} from '../src/tools/draw/drawing.js';
 import type {LayerDefinition} from '../src/core/layers.js';
 const layer:LayerDefinition={id:'test',title:'Test',description:'',group:'test',type:'GEOJSON',url:'local:test',visible:false,opacity:1,minZoom:0,maxZoom:24,accessLevel:'MEMBER',color:'#dc2626',legend:'test',popupFields:[]};
 test('one registry drives layer and toolbox state; denied layers and invalid orders never enter state',()=>{
@@ -54,12 +54,12 @@ test('photo events: owner-scoped, cleaned when photos expire, and v1 databases k
  assert.equal((await storage.photos.loadPhotos('alice',5000+15*86400000)).events.length,0,'an empty set is removed');
  // A database created by SDK 1.x (version 1, photos only).
  await new Promise<void>((resolve,reject)=>{const request=indexedDB.open('legacy-photos',1);request.onupgradeneeded=()=>{const store=request.result.createObjectStore('photos',{keyPath:'id'});store.createIndex('userId','userId');store.createIndex('expiresAt','expiresAt');store.add({id:'p1',userId:'alice',name:'old.jpg',blob:new Blob(['o']),longitude:100,latitude:13,createdAt:1,expiresAt:Date.now()+86400000});};request.onsuccess=()=>{request.result.close();resolve();};request.onerror=()=>reject(request.error);});
- const {createPhotoStorage,LEGACY_PHOTO_EVENT}=await import('../src/storage/photo-storage.js');
+ const {createPhotoStorage,LEGACY_PHOTO_EVENT}=await import('../src/tools/photo/photo-storage.js');
  const legacy=await createPhotoStorage('legacy-photos').loadPhotos('alice');
  assert.deepEqual(legacy.events.map(event=>[event.name,event.photoIds,event.onMap]),[[LEGACY_PHOTO_EVENT,['p1'],true]]);
 });
 test('drawing sets: owner-scoped CRUD, expiry, and a v1 draft becomes a set on the map',async()=>{
- const {createDrawingStorage,LEGACY_DRAWING_SET}=await import('../src/storage/drawing-storage.js');
+ const {createDrawingStorage,LEGACY_DRAWING_SET}=await import('../src/tools/draw/drawing-storage.js');
  const drawing=(text:string)=>({id:crypto.randomUUID(),tool:'point' as const,points:[[100,13] as [number,number]],text,style:defaultDrawingStyle,boxWidth:200,boxHeight:100});
  const store=createDrawingStorage('draw-sets');
  const set=await store.saveSet('alice',{name:'คัน',tags:['x'],drawings:[drawing('a')]},1000);

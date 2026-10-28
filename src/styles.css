@@ -3,6 +3,7 @@
 @import "tailwindcss/utilities.css" layer(utilities);
 @source "./ui";
 @source "./adapters";
+@source "./tools";
 /* Colour tokens: set any --sdk-* variable on .toolbox-sdk or :root to theme the tools; fallbacks are the defaults. */
 @theme inline {
  --color-background:var(--sdk-background,#fff);

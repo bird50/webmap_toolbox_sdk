@@ -6,11 +6,13 @@ import {dirname,join,normalize,relative} from 'node:path';
 // Each tool entry may use shared runtime code but never another tool's files or the all-in-one aggregates,
 // so a tool can later move to its own package unchanged.
 const src=join(import.meta.dirname,'..','src');
+// A tool owns its folder src/tools/<tool>/ and its contracts in src/contracts/ (shared with Toolbox Service);
+// share-tags and public-photo-query are shared contracts.
 const owners:Record<string,RegExp>={
- photo:/^(ui\/plugins\/photo|ui\/PhotoOverlay|ui\/PhotoEvents|ui\/PhotoPicker|ui\/PhotoSettings|ui\/PublicPhoto\w+|ui\/tools\/PhotoTool|storage\/photo-storage|core\/photo-gps|core\/photo-share|ui\/messages\/(photo\w*|publicPhoto\w+))\.tsx?$/,
- draw:/^(ui\/plugins\/draw|ui\/Drawing\w+|ui\/PublicDrawingSettings|ui\/tools\/DrawTool|storage\/drawing-storage|core\/drawing|core\/drawing-contract|core\/public-drawing-sets|ui\/messages\/(draw\w*|publicDrawingSettings))\.tsx?$/,
- 'data-files':/^(ui\/plugins\/data-files|ui\/DataFilesSettings|ui\/PublicDataFilesSettings|ui\/tools\/DataFilesTool|ui\/useDataFiles|storage\/data-file-storage|core\/data-files|core\/data-file-share|core\/public-data-file-sets|ui\/messages\/(dataFiles\w*|publicDataFiles))\.tsx?$/,
- navigation:/^(ui\/plugins\/navigation|ui\/messages\/navigation)\.tsx?$/,
+ photo:/^(tools\/photo\/.*|contracts\/(photo-gps|photo-share|public-photo-sets))\.tsx?$/,
+ draw:/^(tools\/draw\/.*|contracts\/(drawing-contract|public-drawing-sets))\.tsx?$/,
+ 'data-files':/^(tools\/data-files\/.*|contracts\/(data-file-share|public-data-file-sets))\.tsx?$/,
+ navigation:/^tools\/navigation\/.*\.tsx?$/,
 };
 const aggregates=new Set(['ui/index.ts','ui/messages.ts','storage/index.ts','core/index.ts','adapters/index.ts']);
 
@@ -34,7 +36,7 @@ function closure(entry:string){
 }
 for(const tool of Object.keys(owners)){
  test(`tools/${tool} reaches only its own files and shared runtime code`,()=>{
-  const files=[...closure(`tools/${tool}.ts`)].map(file=>relative('.',file));
+  const files=[...closure(`tools/${tool}/index.ts`)].map(file=>relative('.',file));
   const foreign=files.filter(file=>Object.entries(owners).some(([other,pattern])=>other!==tool&&pattern.test(file)));
   const bundled=files.filter(file=>aggregates.has(file));
   assert.deepEqual(foreign,[],`imports another tool's files`);

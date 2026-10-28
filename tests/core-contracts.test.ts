@@ -1,10 +1,10 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {distance} from '@turf/distance';
-import {shapePoints,transformPoints,defaultDrawingStyle,type Coordinate} from '../src/core/drawing.js';
-import {drawingSchema,drawingCollection,drawingShareSchema} from '../src/core/drawing-contract.js';
-import {publicPhotoQuery,publicPhotoFilters,photoViewportBbox} from '../src/core/public-photo-query.js';
-import {automaticShareTag,shareFields} from '../src/core/photo-share.js';
+import {shapePoints,transformPoints,defaultDrawingStyle,type Coordinate} from '../src/tools/draw/drawing.js';
+import {drawingSchema,drawingCollection,drawingShareSchema} from '../src/contracts/drawing-contract.js';
+import {publicPhotoQuery,publicPhotoFilters,photoViewportBbox} from '../src/contracts/public-photo-query.js';
+import {automaticShareTag,shareFields} from '../src/contracts/photo-share.js';
 
 test('rectangle closes its ring and preserves both drag corners',()=>{
  assert.deepEqual(shapePoints('rectangle',[101,15],[100,13]),[[101,15],[100,15],[100,13],[101,13],[101,15]]);
